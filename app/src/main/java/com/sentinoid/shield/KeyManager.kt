@@ -1,0 +1,32 @@
+package com.sentinoid.shield
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.security.KeyStore
+import java.security.SecureRandom
+import javax.crypto.KeyGenerator
+
+object KeyManager {
+    private const val KEY_ALIAS = "SentinoidDbKey"
+    private const val PREFS_NAME = "SentinoidSecurePrefs"
+    private const val ENCRYPTED_PASS_KEY = "db_passphrase"
+
+    // This generates a random 32-byte password (256-bit)
+    fun getOrCreatePassphrase(context: Context): ByteArray {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val existingPass = prefs.getString(ENCRYPTED_PASS_KEY, null)
+
+        return if (existingPass == null) {
+            val newPass = ByteArray(32)
+            SecureRandom().nextBytes(newPass)
+            // For this beginner phase, we'll store it simply.
+            // In the advanced phase, we will encrypt this string too!
+            val encodedPass = android.util.Base64.encodeToString(newPass, android.util.Base64.DEFAULT)
+            prefs.edit().putString(ENCRYPTED_PASS_KEY, encodedPass).apply()
+            newPass
+        } else {
+            android.util.Base64.decode(existingPass, android.util.Base64.DEFAULT)
+        }
+    }
+}
