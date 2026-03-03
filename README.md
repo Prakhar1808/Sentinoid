@@ -309,6 +309,8 @@ adb install vendor/mobile_a_samsung_s26_module/*.apk
 - [Hardware Setup Guide](docs/HARDWARE_SETUP.md)
 - [AOA Protocol Details](docs/AOA_PROTOCOL.md)
 - [Security Prompts](docs/SECURITY_PROMPTS.md)
+- [Architecture Diagram](docs/architecture_diagram_text.md)
+- [90-Second Pitch Script](docs/pitch_90s_script.md)
 
 ---
 
