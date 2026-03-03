@@ -202,7 +202,7 @@ Sentinoid/
 ### 1. Clone and Build
 
 ```bash
-git clone https://github.com/yourusername/Sentinoid.git
+git clone https://github.com/Prakhar1808/Sentinoid.git
 cd Sentinoid
 
 # Build the C++ LACE core
