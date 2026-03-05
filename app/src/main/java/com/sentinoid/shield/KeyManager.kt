@@ -3,30 +3,100 @@ package com.sentinoid.shield
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import java.security.KeyPair
+import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.KeyGenerator
+import cash.z.ecc.android.bip39.Mnemonics
+import cash.z.ecc.android.bip39.toSeed
 
 object KeyManager {
-    private const val KEY_ALIAS = "SentinoidDbKey"
+    private const val DB_KEY_ALIAS = "SentinoidDbKey"
+    private const val HANDSHAKE_KEY_ALIAS = "SentinoidHandshakeKey"
     private const val PREFS_NAME = "SentinoidSecurePrefs"
     private const val ENCRYPTED_PASS_KEY = "db_passphrase"
+    private const val MNEMONIC_KEY = "mnemonic_phrase"
 
-    // This generates a random 32-byte password (256-bit)
-    fun getOrCreatePassphrase(context: Context): ByteArray {
+    fun hasPassphrase(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val existingPass = prefs.getString(ENCRYPTED_PASS_KEY, null)
+        return prefs.contains(MNEMONIC_KEY)
+    }
 
-        return if (existingPass == null) {
-            val newPass = ByteArray(32)
-            SecureRandom().nextBytes(newPass)
-            // For this beginner phase, we'll store it simply.
-            // In the advanced phase, we will encrypt this string too!
-            val encodedPass = android.util.Base64.encodeToString(newPass, android.util.Base64.DEFAULT)
-            prefs.edit().putString(ENCRYPTED_PASS_KEY, encodedPass).apply()
-            newPass
-        } else {
-            android.util.Base64.decode(existingPass, android.util.Base64.DEFAULT)
+    fun getMnemonic(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(MNEMONIC_KEY, null)
+    }
+
+    fun generateMnemonic(): String {
+        val mnemonic = Mnemonics.MnemonicCode(Mnemonics.WordCount.COUNT_24)
+        val phrase = mnemonic.words.joinToString(" ") { String(it) }
+        mnemonic.clear()
+        return phrase
+    }
+
+    fun saveMnemonic(context: Context, mnemonic: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(MNEMONIC_KEY, mnemonic).apply()
+    }
+
+    /**
+     * Derives a 32-byte (256-bit) passphrase from the BIP39 mnemonic.
+     * This is used to unlock the SQLCipher database.
+     */
+    fun derivePassphraseFromMnemonic(mnemonic: String): ByteArray {
+        val mnemonicCode = Mnemonics.MnemonicCode(mnemonic)
+        val seed = mnemonicCode.toSeed()
+        // We take the first 32 bytes of the 64-byte 512-bit seed for AES-256 compatibility
+        val passphrase = seed.copyOfRange(0, 32)
+        mnemonicCode.clear()
+        seed.fill(0) // Scrubber
+        return passphrase
+    }
+
+    fun getPassphrase(context: Context): ByteArray {
+        val mnemonic = getMnemonic(context) ?: throw IllegalStateException("Mnemonic not set")
+        return derivePassphraseFromMnemonic(mnemonic)
+    }
+
+    /**
+     * TEE-backed RSA KeyPair for the AOA Handshake.
+     */
+    fun getOrCreateHandshakeKeyPair(): KeyPair {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        
+        if (!keyStore.containsAlias(HANDSHAKE_KEY_ALIAS)) {
+            val kpg = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_RSA, 
+                "AndroidKeyStore"
+            )
+            val parameterSpec = KeyGenParameterSpec.Builder(
+                HANDSHAKE_KEY_ALIAS,
+                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+            ).run {
+                setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS)
+                setKeySize(2048)
+                setUserAuthenticationRequired(true)
+                setInvalidatedByBiometricEnrollment(true)
+                build()
+            }
+            kpg.initialize(parameterSpec)
+            kpg.generateKeyPair()
         }
+
+        val entry = keyStore.getEntry(HANDSHAKE_KEY_ALIAS, null) as KeyStore.PrivateKeyEntry
+        return KeyPair(entry.certificate.publicKey, entry.privateKey)
+    }
+
+    fun createSelfDestructingKey() {
+        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        keyGenerator.init(
+            KeyGenParameterSpec.Builder("SelfDestructKey", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        keyGenerator.generateKey()
     }
 }
