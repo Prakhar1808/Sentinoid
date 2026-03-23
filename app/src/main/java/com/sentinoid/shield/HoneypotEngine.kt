@@ -20,7 +20,7 @@ class HoneypotEngine : Service() {
                 override fun onEvent(event: Int, path: String?) {
                     if (event == OPEN && path == "vault_keys.txt") {
                         Log.d("HoneypotEngine", "HONEYPOT TRIPPED! File accessed: $path")
-                        SilentAlarmManager.triggerLockdown()
+                        SilentAlarmManager.triggerLockdown(applicationContext)
                     }
                 }
             }
