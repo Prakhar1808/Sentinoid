@@ -1,0 +1,2 @@
+0 non-malicious
+1 malicious
