@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Sentinoid</string>
+    <string name="accessibility_service_description">Sentinoid Privacy Shield monitor.</string>
+</resources>
