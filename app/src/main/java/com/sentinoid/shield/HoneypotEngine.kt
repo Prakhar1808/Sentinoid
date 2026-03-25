@@ -12,14 +12,15 @@ class HoneypotEngine : Service() {
     private var observer: FileObserver? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        observer?.stopWatching()
+
         val honeypotDir = createHoneypotDirectory()
         if (honeypotDir != null) {
-            // The FileObserver is watching for any process trying to OPEN the bait file.
             observer = object : FileObserver(honeypotDir.path, OPEN) {
                 override fun onEvent(event: Int, path: String?) {
                     if (event == OPEN && path == "vault_keys.txt") {
                         Log.d("HoneypotEngine", "HONEYPOT TRIPPED! File accessed: $path")
-                        SilentAlarmManager.triggerLockdown()
+                        SilentAlarmManager.triggerLockdown(applicationContext)
                     }
                 }
             }
@@ -27,6 +28,7 @@ class HoneypotEngine : Service() {
             Log.d("HoneypotEngine", "Honeypot is active at ${honeypotDir.path}")
         }
         return START_STICKY
+
     }
 
     private fun createHoneypotDirectory(): File? {
@@ -36,7 +38,10 @@ class HoneypotEngine : Service() {
             if (!trapDir.exists()) {
                 trapDir.mkdirs()
             }
-            File(trapDir, "vault_keys.txt").writeText("This is a honeypot. Accessing this file has triggered a silent alarm.")
+            File(
+                trapDir,
+                "vault_keys.txt"
+            ).writeText("This is a honeypot. Accessing this file has triggered a silent alarm.")
             return trapDir
         }
         return null

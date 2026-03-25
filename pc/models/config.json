@@ -1,0 +1,74 @@
+{
+  "models": [
+    {
+      "name": "Qwen2.5-7B-Instruct",
+      "ollama_name": "qwen2.5:7b",
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "tier": "TIER_RTX_HIGH",
+      "description": "Best for RTX 5060+ GPUs - excellent reasoning and JSON output",
+      "vram_required": "8GB",
+      "recommended": true
+    },
+    {
+      "name": "Qwen2.5-7B-AMD",
+      "ollama_name": "qwen2.5:7b",
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "tier": "TIER_AMD_GPU",
+      "description": "For AMD GPUs via ROCm",
+      "vram_required": "8GB",
+      "recommended": true
+    },
+    {
+      "name": "Qwen2.5-4B-Instruct",
+      "ollama_name": "qwen2.5:4b",
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "tier": "TIER_RTX_OLD",
+      "description": "For older NVIDIA GPUs (GTX 1660, RTX 20 series)",
+      "vram_required": "6GB"
+    },
+    {
+      "name": "Llama3.2-3B-Instruct",
+      "ollama_name": "llama3.2:3b",
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "tier": "TIER_IGPU",
+      "description": "For integrated graphics - balanced performance",
+      "vram_required": "4GB"
+    },
+    {
+      "name": "Qwen2.5-1.8B-Instruct",
+      "ollama_name": "qwen2.5:1.8b",
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "tier": "TIER_CPU",
+      "description": "CPU-only fallback - slower but works everywhere",
+      "vram_required": "N/A"
+    },
+    {
+      "name": "DeepSeek-R1-7B",
+      "ollama_name": "deepseek-r1:7b",
+      "max_tokens": 1024,
+      "temperature": 0.1,
+      "tier": "TIER_RTX_HIGH",
+      "description": "Advanced reasoning model - best for complex threat analysis",
+      "vram_required": "8GB",
+      "requires_thinking": true
+    }
+  ],
+  "hardware_detection": {
+    "nvidia_patterns": {
+      "TIER_RTX_HIGH": ["RTX 50", "RTX 40", "RTX 30"],
+      "TIER_RTX_OLD": ["GTX 16", "GTX 10", "RTX 20"]
+    },
+    "amd_indicator": "rocminfo"
+  },
+  "default_settings": {
+    "temperature": 0.1,
+    "top_p": 0.9,
+    "repeat_penalty": 1.1,
+    "timeout_seconds": 60
+  }
+}

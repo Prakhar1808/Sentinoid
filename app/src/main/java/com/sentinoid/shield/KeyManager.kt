@@ -10,6 +10,8 @@ import java.security.SecureRandom
 import javax.crypto.KeyGenerator
 import cash.z.ecc.android.bip39.Mnemonics
 import cash.z.ecc.android.bip39.toSeed
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 object KeyManager {
     private const val DB_KEY_ALIAS = "SentinoidDbKey"
@@ -18,13 +20,27 @@ object KeyManager {
     private const val ENCRYPTED_PASS_KEY = "db_passphrase"
     private const val MNEMONIC_KEY = "mnemonic_phrase"
 
+    private fun getEncryptedPrefs(context: Context): android.content.SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        return EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
     fun hasPassphrase(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = getEncryptedPrefs(context)
         return prefs.contains(MNEMONIC_KEY)
     }
 
     fun getMnemonic(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = getEncryptedPrefs(context)
         return prefs.getString(MNEMONIC_KEY, null)
     }
 
@@ -35,8 +51,8 @@ object KeyManager {
         return phrase
     }
 
-    fun saveMnemonic(context: Context, mnemonic: String) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    fun saveMnemonicSecure(context: Context, mnemonic: String) {
+        val prefs = getEncryptedPrefs(context)
         prefs.edit().putString(MNEMONIC_KEY, mnemonic).apply()
     }
 
@@ -64,10 +80,10 @@ object KeyManager {
      */
     fun getOrCreateHandshakeKeyPair(): KeyPair {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        
+
         if (!keyStore.containsAlias(HANDSHAKE_KEY_ALIAS)) {
             val kpg = KeyPairGenerator.getInstance(
-                KeyProperties.KEY_ALGORITHM_RSA, 
+                KeyProperties.KEY_ALGORITHM_RSA,
                 "AndroidKeyStore"
             )
             val parameterSpec = KeyGenParameterSpec.Builder(
@@ -92,11 +108,24 @@ object KeyManager {
     fun createSelfDestructingKey() {
         val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         keyGenerator.init(
-            KeyGenParameterSpec.Builder("SelfDestructKey", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            KeyGenParameterSpec.Builder(
+                "SelfDestructKey",
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .build()
         )
         keyGenerator.generateKey()
+    }
+
+    fun getOrCreatePassphrase(context: Context): ByteArray {
+        return if (hasPassphrase(context)) {
+            getPassphrase(context)
+        } else {
+            val mnemonic = generateMnemonic()
+            saveMnemonicSecure(context, mnemonic)
+            derivePassphraseFromMnemonic(mnemonic)
+        }
     }
 }
