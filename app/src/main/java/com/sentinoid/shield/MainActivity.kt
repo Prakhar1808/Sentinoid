@@ -18,42 +18,28 @@ import net.sqlcipher.database.SupportFactory
 import androidx.room.Room
 
 class MainActivity : ComponentActivity() {
+    private var db: SovereignDatabase? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // This will prevent screenshot and screen recording!
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         )
 
-        // 1. Get our hardware-backed passphrase
-        // Note: Modified to use getPassphrase or similar if getOrCreatePassphrase doesn't exist in KeyManager.kt
-        // For now, let's assume we need to fix KeyManager.kt or MainActivity.kt to match.
-        // The KeyManager.kt in the package has getPassphrase(context).
-        
-        val passphrase = try {
-            KeyManager.getPassphrase(this)
-        } catch (e: Exception) {
-            // Fallback or initialization if mnemonic is missing
-            val mnemonic = KeyManager.generateMnemonic()
-            KeyManager.saveMnemonic(this, mnemonic)
-            KeyManager.derivePassphraseFromMnemonic(mnemonic)
-        }
+        val passphrase = KeyManager.getOrCreatePassphrase(this)
 
-        // 2. Initialize SQLCipher libraries (Required!)
         SQLiteDatabase.loadLibs(this)
 
-        // 3. Create the "Lock" factory
         val factory = SupportFactory(passphrase)
 
-        // 4. Build the Encrypted Database
-        val db = Room.databaseBuilder(
+        db = Room.databaseBuilder(
             applicationContext,
             SovereignDatabase::class.java,
             "sentinoid_ledger.db"
         )
-            .openHelperFactory(factory) // This line applies the encryption!
+            .openHelperFactory(factory)
             .build()
 
         enableEdgeToEdge()
@@ -67,6 +53,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        db?.close()
     }
 }
 

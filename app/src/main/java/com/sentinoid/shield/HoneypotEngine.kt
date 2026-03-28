@@ -30,70 +30,39 @@ class HoneypotEngine : JobService() {
         private const val TAG = "HoneypotEngine"
         private const val JOB_ID_HONEYPOT = 1002
 
-        fun scheduleHoneypot(context: Context) {
-            val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            val componentName = ComponentName(context, HoneypotEngine::class.java)
-            
-            val jobInfo = JobInfo.Builder(JOB_ID_HONEYPOT, componentName)
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
-                .setPersisted(true)
-                .setPeriodic(30 * 60 * 1000) // Check every 30 minutes
-                .build()
-            
-            jobScheduler.schedule(jobInfo)
-            Log.d(TAG, "Scheduled honeypot monitoring job")
-        }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        observer?.stopWatching()
 
-        fun cancelHoneypot(context: Context) {
-            val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            jobScheduler.cancel(JOB_ID_HONEYPOT)
-        }
-    }
-
-    override fun onStartJob(params: JobParameters?): Boolean {
-        startMonitoring()
-        return true
-    }
-
-    override fun onStopJob(params: JobParameters?): Boolean {
-        stopMonitoring()
-        return false
-    }
-
-    private fun startMonitoring() {
-        if (isMonitoring.get()) return
-        
-        handlerThread.start()
-        handler = Handler(handlerThread.looper)
-        
         val honeypotDir = createHoneypotDirectory()
         if (honeypotDir != null) {
-            observer = AdaptiveFileObserver(honeypotDir.path, handler!!)
+            observer = object : FileObserver(honeypotDir.path, OPEN) {
+                override fun onEvent(event: Int, path: String?) {
+                    if (event == OPEN && path == "vault_keys.txt") {
+                        Log.d("HoneypotEngine", "HONEYPOT TRIPPED! File accessed: $path")
+                        SilentAlarmManager.triggerLockdown(applicationContext)
+                    }
+                }
+            }
             observer?.startWatching()
             isMonitoring.set(true)
             Log.d(TAG, "Adaptive honeypot monitoring started at ${honeypotDir.path}")
         }
-    }
+        return START_STICKY
 
-    private fun stopMonitoring() {
-        observer?.stopWatching()
-        observer = null
-        handlerThread.quitSafely()
-        isMonitoring.set(false)
     }
 
     private fun createHoneypotDirectory(): File? {
-        val externalDir = getExternalFilesDir(null) ?: return null
-        val trapDir = File(externalDir, ".sentinoid_vault")
-        
-        if (!trapDir.exists()) {
-            trapDir.mkdirs()
-        }
-        
-        // Create multiple decoy files
-        val decoyFiles = arrayOf("vault_keys.txt", "crypto_wallet.dat", "passwords.enc")
-        decoyFiles.forEach { filename ->
-            File(trapDir, filename).writeText("HONEYPOT: Unauthorized access detected. Session logged.")
+        val externalDir = getExternalFilesDir(null)
+        if (externalDir != null) {
+            val trapDir = File(externalDir, ".sentinoid_vault")
+            if (!trapDir.exists()) {
+                trapDir.mkdirs()
+            }
+            File(
+                trapDir,
+                "vault_keys.txt"
+            ).writeText("This is a honeypot. Accessing this file has triggered a silent alarm.")
+            return trapDir
         }
         
         return trapDir

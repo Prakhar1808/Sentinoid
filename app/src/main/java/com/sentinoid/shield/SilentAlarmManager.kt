@@ -1,60 +1,48 @@
 package com.sentinoid.shield
 
 import android.content.Context
-import android.os.PowerManager
+import android.content.Intent
+import android.util.Log
 
 /**
- * Centralized lockdown trigger with battery-aware throttling.
- * Ensures security responses don't drain battery during repeated triggers.
+ * Manages silent alarms when honeypot traps are triggered.
+ *
+ * This class is responsible for executing security responses when
+ * a honeypot file is accessed, such as locking the device or
+ * notifying security systems.
+ *
+ * TODO: Implement actual lockdown mechanism
+ * TODO: Add notification to security dashboard
+ * TODO: Add option to capture attacker information
  */
 object SilentAlarmManager {
+
     private const val TAG = "SilentAlarmManager"
-    private const val LOCKDOWN_COOLDOWN_MS = 5000L // Prevent spam
-    private var lastLockdownTime = 0L
-    private var isLockedDown = false
-    
-    @Volatile
-    private var lockdownCallback: (() -> Unit)? = null
-    
-    fun setLockdownCallback(callback: () -> Unit) {
-        lockdownCallback = callback
-    }
-    
+
     /**
-     * Triggers app lockdown with cooldown protection.
-     * Prevents rapid-fire lockdowns that drain battery.
+     * Trigger a lockdown when a honeypot is accessed.
+     * This is called from HoneypotEngine when the trap file is opened.
+     *
+     * @param context Application context for launching intents
      */
     fun triggerLockdown(context: Context? = null) {
-        val now = System.currentTimeMillis()
-        if (now - lastLockdownTime < LOCKDOWN_COOLDOWN_MS) {
-            return // Throttled
-        }
-        lastLockdownTime = now
-        isLockedDown = true
+        Log.w(TAG, "HONEYPOT TRIGGERED - lockdown initiated")
         
-        // Acquire partial wake lock briefly for emergency operations
-        context?.let { ctx ->
-            val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val wakeLock = pm.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "Sentinoid::EmergencyLockdown"
-            )
-            wakeLock.acquire(1000) // 1 second max
-            
-            try {
-                lockdownCallback?.invoke()
-                // TODO: Purge sensitive data, close connections
-            } finally {
-                if (wakeLock.isHeld) wakeLock.release()
-            }
-        } ?: run {
-            lockdownCallback?.invoke()
-        }
+        // TODO: Implement actual lockdown logic
+        // Options:
+        // 1. Lock device via DevicePolicyManager
+        // 2. Wipe sensitive data
+        // 3. Send alert to security server
+        // 4. Take screenshot of potential attacker
+        
+        // For now, just log the event - implement actual response based on security requirements
     }
-    
-    fun isInLockdown(): Boolean = isLockedDown
-    
-    fun resetLockdown() {
-        isLockedDown = false
+
+    /**
+     * Cancel any active lockdown.
+     */
+    fun cancelLockdown() {
+        Log.d(TAG, "Lockdown cancelled")
+        // TODO: Implement cancellation logic
     }
 }

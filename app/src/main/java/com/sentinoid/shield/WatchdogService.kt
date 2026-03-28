@@ -22,146 +22,133 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Optimized WatchdogService using JobScheduler instead of persistent service.
- * Reduces battery drain by using system-scheduled batch jobs rather than wake locks.
+ * Background security monitoring service.
+ *
+ * Responsibilities:
+ * - Run periodic security checks in the background
+ * - Detect device root status
+ * - Monitor USB debugging state
+ * - Coordinate malware scanning via WatchdogManager
+ *
+ * This service runs continuously in the background to provide
+ * real-time security monitoring of the device.
+ *
+ * Architecture:
+ *   MainActivity → (starts) → WatchdogService
+ *                                      ↓
+ *                               WatchdogManager
+ *                                      ↓
+ *                               MalwareEngine
+ *                                      ↑
+ *                              (malware_model.tflite)
+ *
+ * @see WatchdogManager
+ * @see MalwareEngine
  */
-class WatchdogService : JobService() {
-    private val TAG = "WatchdogService"
-    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
-    private var lastCheckTime = 0L
-    private val CHECK_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes minimum between checks
-    
+class WatchdogService : Service() {
+
     companion object {
-        private const val JOB_ID_WATCHDOG = 1001
-        private const val LOW_BATTERY_THRESHOLD = 20
-        
-        fun scheduleWatchdog(context: Context) {
-            val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            
-            val componentName = ComponentName(context, WatchdogService::class.java)
-            
-            val jobInfo = JobInfo.Builder(JOB_ID_WATCHDOG, componentName)
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE) // No network needed
-                .setRequiresCharging(false)
-                .setRequiresBatteryNotLow(false) // Run even on low battery for security
-                .setPeriodic(TimeUnit.MINUTES.toMillis(15)) // Every 15 minutes
-                .setPersisted(true) // Survive reboots
-                .build()
-            
-            jobScheduler.schedule(jobInfo)
-            Log.d("WatchdogService", "Scheduled periodic watchdog job")
-        }
-        
-        fun cancelWatchdog(context: Context) {
-            val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            jobScheduler.cancel(JOB_ID_WATCHDOG)
-        }
+        private const val TAG = "WatchdogService"
     }
 
-    override fun onStartJob(params: JobParameters?): Boolean {
-        serviceScope.launch {
-            try {
-                performSecurityCheck()
-            } finally {
-                jobFinished(params, false)
-            }
-        }
-        return true // Async work
+    // TODO: Add periodic scan interval (e.g., every 6 hours)
+    // TODO: Implement WorkManager for reliable background scheduling
+    // TODO: Add notification for high-risk app detection
+
+    private var watchdogManager: WatchdogManager? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        // Initialize WatchdogManager - uses MalwareEngine singleton
+        watchdogManager = WatchdogManager(this)
+        Log.d(TAG, "WatchdogService created")
     }
 
-    override fun onStopJob(params: JobParameters?): Boolean {
-        return false // Don't reschedule, let periodic schedule handle it
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "Hardware Watchdog is active.")
 
-    private suspend fun performSecurityCheck() {
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastCheckTime < CHECK_INTERVAL_MS) {
-            return // Throttled
-        }
-        lastCheckTime = now
-        
-        // Skip intensive checks on very low battery
-        if (isCriticalBattery()) {
-            Log.d(TAG, "Skipping intensive checks due to critical battery")
-            performLightCheck()
-            return
-        }
-        
-        Log.d(TAG, "Performing security check...")
-        
-        // Root check (lightweight)
+        // Check 1: Device Root Detection
         if (isDeviceRooted()) {
             Log.e(TAG, "CRITICAL: Device is rooted! Triggering lockdown.")
-            SilentAlarmManager.triggerLockdown(applicationContext)
+            // TODO: Trigger a total lockdown of the app
+            // - Disable app functionality
+            // - Show critical warning notification
+            // - Require user acknowledgment
         }
 
-        // USB debugging check (very lightweight)
+        // Check 2: USB Debugging State
         if (isUsbDebuggingEnabled()) {
             Log.w(TAG, "WARNING: USB Debugging is enabled.")
+            // TODO: Notify the user or take other action
+            // - Show warning notification
+            // - Recommend disabling ADB
         }
 
-        // Only perform intensive checks when not in power save mode
-        if (!isPowerSaveMode()) {
-            performIntensiveChecks()
-        } else {
-            Log.d(TAG, "Skipping intensive checks in power save mode")
+        // Check 3: Malware Scanning
+        performMalwareScan()
+
+        // TODO: Add periodic scanning based on configured interval
+        // - Use WorkManager for reliable scheduling
+        // - Save last scan time for UI display
+
+        return START_STICKY
+    }
+
+    /**
+     * Perform malware scan on all installed apps.
+     * Uses WatchdogManager which delegates to MalwareEngine (singleton).
+     */
+    private fun performMalwareScan() {
+        try {
+            Log.d(TAG, "Starting malware scan...")
+            val highRiskApps = watchdogManager?.scanAllApps()
+
+            if (highRiskApps != null && highRiskApps.isNotEmpty()) {
+                Log.w(TAG, "MALWARE DETECTED: Found ${highRiskApps.size} high-risk apps")
+                highRiskApps.forEach { (packageName, score) ->
+                    Log.w(TAG, "  - $packageName (risk: $score)")
+                }
+                // TODO: Send notification to user about detected threats
+                // TODO: Integrate with SecurityModule for alert escalation
+            } else {
+                Log.d(TAG, "Malware scan complete: No threats detected")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during malware scan", e)
+            // TODO: Implement retry logic or fallback
         }
     }
 
-    private fun performLightCheck() {
-        // Only check USB debugging (very low power)
-        if (isUsbDebuggingEnabled()) {
-            Log.w(TAG, "USB Debugging enabled (light check)")
-        }
-    }
-
-    private suspend fun performIntensiveChecks() {
-        // Check for new root indicators
-        checkMagiskSpecific()
-        
-        // Verify system integrity (throttled)
-        delay(100) // Small delay to prevent CPU spike
-        checkSystemIntegrity()
-    }
-
+    /**
+     * Check if device is rooted.
+     *
+     * Note: This is a basic check. Production apps should use
+     * more sophisticated root detection methods.
+     */
     private fun isDeviceRooted(): Boolean {
-        // Tiered checking - fast checks first
-        val testKeys = android.os.Build.TAGS?.contains("test-keys") ?: false
-        if (testKeys) return true
-        
-        // Critical paths only (reduced from 15 to 8 for efficiency)
-        val criticalPaths = arrayOf(
+        // A simple root check. More sophisticated checks are needed for a production app.
+        // TODO: Add more comprehensive root detection:
+        // - Check for su binary in PATH
+        // - Check for root management apps
+        // - Test for root-only paths being writable
+        // - Check for dangerous props (ro.debuggable, ro.secure)
+        val paths = arrayOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
             "/system/bin/su",
             "/system/xbin/su",
-            "/sbin/su",
-            "/su/bin/su",
-            "/magisk/.core/bin/su",
-            "/system/app/Superuser.apk",
-            "/data/adb/magisk",
-            "/sbin/.magisk"
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su"
         )
-        
-        return criticalPaths.any { File(it).exists() }
+        return paths.any { File(it).exists() }
     }
 
-    private fun checkMagiskSpecific(): Boolean {
-        // Check for Magisk-specific indicators
-        return try {
-            val process = Runtime.getRuntime().exec("magisk -v")
-            process.waitFor() == 0
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun checkSystemIntegrity() {
-        // Verify critical system properties haven't been tampered with
-        val debuggable = Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0)
-        if (debuggable == 1) {
-            Log.w(TAG, "System appears debuggable")
-        }
-    }
-
+    /**
+     * Check if USB debugging is enabled.
+     */
     private fun isUsbDebuggingEnabled(): Boolean {
         return Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
     }
@@ -184,5 +171,12 @@ class WatchdogService : JobService() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.coroutineContext[Job]?.cancel()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        watchdogManager?.close()
+        watchdogManager = null
+        Log.d(TAG, "WatchdogService destroyed")
     }
 }

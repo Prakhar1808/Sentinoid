@@ -32,3 +32,6 @@ google-services.json
 
 # Android Profiling
 *.hprof
+.python-version
+uv.lock
+gradle.properties
