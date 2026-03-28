@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/card_log"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="@color/card_background"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/border">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_log_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:34:56"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="monospace"
+                android:layout_marginEnd="12dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/tv_log_category"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WATCHDOG"
+                android:textSize="11sp"
+                app:chipMinHeight="24dp"
+                app:chipBackgroundColor="@color/accent_blue_glow"
+                app:chipStrokeWidth="0dp" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tv_log_severity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="INFO"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="@color/accent_green" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_log_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Security check completed successfully"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="2" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
