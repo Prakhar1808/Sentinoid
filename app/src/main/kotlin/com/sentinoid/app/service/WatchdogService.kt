@@ -32,8 +32,10 @@ class WatchdogService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val NOTIFICATION_CHANNEL_ID = "watchdog_channel"
         private const val WAKELOCK_TAG = "Sentinoid:WatchdogWakeLock"
-        private const val HEARTBEAT_INTERVAL_MS = 30000L
+        private const val HEARTBEAT_INTERVAL_MS = 45000L // 45 seconds
         private const val MAX_HEARTBEAT_MISS = 3
+        private const val WATCHDOG_CHECK_INTERVAL_MS = 45000L // 45 seconds between checks
+        private const val TAMPER_ALERT_COOLDOWN_MS = 60000L // 1 minute cooldown between alerts
 
         private val ROOT_INDICATORS =
             listOf(
@@ -59,6 +61,8 @@ class WatchdogService : Service() {
     private var resurrectionHandler: Handler? = null
     private var heartbeatRunnable: Runnable? = null
     private var lastHeartbeat = 0L
+    private var lastTamperAlertTime: Long = 0
+    private var tamperAlertCount: Int = 0
     private var resurrectionCount: Int = 0
 
     override fun onCreate() {
@@ -170,7 +174,7 @@ class WatchdogService : Service() {
             try {
                 performSecurityChecks()
                 checkForHoneypotAccess()
-                Thread.sleep(10000) // Reduced frequency to prevent excessive overhead
+                Thread.sleep(WATCHDOG_CHECK_INTERVAL_MS) // 45 seconds between checks
             } catch (e: InterruptedException) {
                 break
             } catch (e: Exception) {
@@ -255,12 +259,26 @@ class WatchdogService : Service() {
     }
 
     private fun triggerTamperResponse(reason: String) {
+        val currentTime = System.currentTimeMillis()
+        
+        // Rate limiting: only show tamper alert once per minute
+        if (currentTime - lastTamperAlertTime < TAMPER_ALERT_COOLDOWN_MS) {
+            tamperAlertCount++
+            logSecurityEvent("TAMPER_SUPPRESSED: $reason (count: $tamperAlertCount)")
+            return
+        }
+        
+        lastTamperAlertTime = currentTime
+        tamperAlertCount++
+        
         logSecurityEvent("TAMPER_DETECTED: $reason")
 
         // Broadcast first so UI can update
         val intent =
             Intent(ACTION_TAMPER_DETECTED).apply {
                 putExtra("reason", reason)
+                putExtra("alert_count", tamperAlertCount)
+                putExtra("last_alert", lastTamperAlertTime)
                 setPackage(packageName)
             }
         sendBroadcast(intent)
