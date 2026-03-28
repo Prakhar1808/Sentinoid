@@ -2,10 +2,7 @@
 
 **The Hardware-Bound, Air-Gapped Mobile Security Fortress**
 
----
-
 ## 📜 Manifesto
-
 **Zero Internet Permissions. Zero Backdoors. Absolute Sovereignty.**
 
 Sentinoid binds secrets to physical silicon and biometric presence. If the device or biometric is not present, the keys do not exist.
@@ -71,29 +68,29 @@ Sentinoid binds secrets to physical silicon and biometric presence. If the devic
 Three Atmospheres share one core engine (LACE) and a hardware abstraction layer.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SENTINOID SUITE                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────────┐  │
-│  │   LITE              │  │   ULTRA             │  │   MOBILE-A           │  │
-│  │   Universal Android│  │   AMD PC            │  │   Samsung S26 + AMD │  │
-│  │                     │  │                     │  │                      │  │
-│  │  • BIP39+Shamir     │  │  • NPU/Accelerator  │  │  • RDNA Shroud      │  │
-│  │  • Deception       │  │  • SEV-SNP          │  │  • Gait-Lock        │  │
-│  │    Honeypot        │  │    Isolation        │  │  • NPU Heuristics   │  │
-│  │  • LACE Core       │  │  • Side-Channel     │  │                      │  │
-│  │                     │  │    Jamming          │  │                      │  │
-│  └─────────┬───────────┘  └──────────┬──────────┘  └──────────┬───────────┘  │
-│            │                         │                         │              │
-│            └─────────────────────────┼─────────────────────────┘              │
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                           SENTINOID SUITE                                     │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────────┐   │
+│  │   LITE              │  │   ULTRA             │  │   MOBILE-A           │   │
+│  │   Universal Android │  │   AMD PC            │  │   Samsung S26 + AMD  │   │
+│  │                     │  │                     │  │                      │   │
+│  │  • BIP39+Shamir     │  │  • NPU/Accelerator  │  │  • RDNA Shroud       │   │
+│  │  • Deception        │  │  • SEV-SNP          │  │  • Gait-Lock         │   │
+│  │    Honeypot         │  │    Isolation        │  │  • NPU Heuristics    │   │
+│  │  • LACE Core        │  │  • Side-Channel     │  │                      │   │
+│  │                     │  │    Jamming          │  │                      │   │
+│  └─────────┬───────────┘  └──────────┬──────────┘  └──────────┬───────────┘   │
+│            │                         │                        │               │
+│            └─────────────────────────┼────────────────────────┘               │
 │                                      │                                        │
-│                           ┌──────────▼──────────┐                            │
-│                           │   LACE Core Engine   │                            │
-│                           │   INT8 TFLite + HAL  │                            │
-│                           └──────────────────────┘                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+│                           ┌──────────▼────────────┐                           │
+│                           │   LACE Core Engine    │                           │
+│                           │   INT8 TFLite + HAL   │                           │
+│                           └───────────────────────┘                           │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Three Atmospheres
@@ -125,7 +122,6 @@ Bridge Mode uses USB encrypted telemetry so high-performance AMD PCs can act as 
 | **Watchdog** | Hardware watchdog integrated with secure processor; monitors voltage, timing, and side-channel anomalies |
 | **Recovery** | BIP39 + Shamir's Secret Sharing (2-of-3 shards: paper, hardware, biometric) |
 
----
 
 ## 🔒 Security Enhancements
 
@@ -237,8 +233,6 @@ On Samsung S26 with AMD accelerator:
 adb install vendor/mobile_a_samsung_s26_module/*.apk
 ```
 
----
-
 ## ✅ Testing & Validation Checklist
 
 - [ ] Confirm `android.permission.INTERNET` absent in built manifest
@@ -281,8 +275,6 @@ The CI workflow runs spotlessCheck before building - any formatting violations w
 | **Recovery** | BIP39 Mnemonic + Shamir | 24-word seed split into 2-of-3 shards |
 | **Key Storage** | Android Keystore, StrongBox | Non-exportable, TEE-bound keys |
 | **Interception** | Accessibility Framework | Service-level hardware call masking |
-
----
 
 ## 💻 Hardware Support
 
@@ -330,7 +322,5 @@ The CI workflow runs spotlessCheck before building - any formatting violations w
 - [Security Prompts](docs/SECURITY_PROMPTS.md)
 - [Architecture Diagram](docs/architecture_diagram_text.md)
 - [90-Second Pitch Script](docs/pitch_90s_script.md)
-
----
 
 > **Sentinoid: Secure by Design. Isolated by Choice.**
