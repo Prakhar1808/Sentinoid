@@ -8,6 +8,7 @@
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false" />
     
     <application
+        android:name=".SentinoidApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -44,16 +45,26 @@
         </receiver>
         
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Sentinoid">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".ui.RecoveryActivity" android:exported="false" />
+        <activity android:name=".ui.SecurityDashboardActivity" android:exported="false" />
+
+        <service
+            android:name=".service.WatchdogService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
+                android:value="Watchdog security monitoring for air-gapped protection and tamper detection." />
+        </service>
     </application>
 
 </manifest>

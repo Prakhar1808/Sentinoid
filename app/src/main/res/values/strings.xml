@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Sentinoid Shield</string>
+    <string name="status_configured">Configured</string>
+    <string name="status_not_configured">Not Configured</string>
+    <string name="btn_resetup_recovery">Reset Recovery</string>
+    <string name="btn_setup_recovery">Setup Recovery</string>
+</resources>

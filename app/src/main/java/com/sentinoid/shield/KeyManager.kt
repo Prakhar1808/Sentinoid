@@ -45,10 +45,7 @@ object KeyManager {
     }
 
     fun generateMnemonic(): String {
-        val mnemonic = Mnemonics.MnemonicCode(Mnemonics.WordCount.COUNT_24)
-        val phrase = mnemonic.words.joinToString(" ") { String(it) }
-        mnemonic.clear()
-        return phrase
+        return generateRecoveryPhrase().joinToString(" ")
     }
 
     fun saveMnemonicSecure(context: Context, mnemonic: String) {
@@ -61,11 +58,11 @@ object KeyManager {
      * This is used to unlock the SQLCipher database.
      */
     fun derivePassphraseFromMnemonic(mnemonic: String): ByteArray {
-        val mnemonicCode = Mnemonics.MnemonicCode(mnemonic)
-        val seed = mnemonicCode.toSeed()
+        val provider = BIP39Provider()
+        val words = mnemonic.split(" ")
+        val seed = provider.mnemonicToSeed(words)
         // We take the first 32 bytes of the 64-byte 512-bit seed for AES-256 compatibility
         val passphrase = seed.copyOfRange(0, 32)
-        mnemonicCode.clear()
         seed.fill(0) // Scrubber
         return passphrase
     }

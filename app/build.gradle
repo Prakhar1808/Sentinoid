@@ -1,0 +1,150 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.spotless)
+    id 'org.jetbrains.kotlin.plugin.compose' version '2.1.0'
+}
+
+android {
+    namespace 'com.sentinoid.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.sentinoid.app"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+        
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable multidex for faster builds (if needed later)
+        multiDexEnabled false
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            // Use R8 in full mode for better optimization
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Faster R8 compilation
+            crunchPngs true
+        }
+        debug {
+            minifyEnabled false
+            shrinkResources false
+            // Faster debug builds
+            crunchPngs false
+            // Disable unnecessary processing for debug
+            pseudoLocalesEnabled false
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        // Enable incremental annotation processing
+        incremental true
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+        // Skip metadata version check for faster builds
+        freeCompilerArgs += [
+            '-Xskip-metadata-version-check',
+            '-Xjvm-default=all'
+        ]
+    }
+    
+    buildFeatures {
+        viewBinding = true
+        compose = true
+        aidl = false
+        renderScript = false
+        shaders = false
+        buildConfig = true
+    }
+    
+    // Lint options for faster builds
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        disable 'InvalidPackage'
+    }
+    
+    // Packaging options for faster builds
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+            keepDebugSymbols += ['**/*.so']
+        }
+    }
+    
+    // Test options
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            all {
+                // Faster test execution
+                maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+                forkEvery = 100
+                jvmArgs '-XX:MaxMetaspaceSize=256m'
+            }
+        }
+    }
+}
+
+dependencies {
+    // AndroidX Core (using bundle)
+    implementation(libs.bundles.androidx)
+    
+    // Material Components
+    implementation(libs.material)
+    
+    // Security (using bundle)
+    implementation(libs.bundles.security)
+    
+    // QR Codes (using bundle)
+    implementation(libs.bundles.qr)
+    
+    // USB Serial
+    implementation(libs.usb.serial)
+    
+    // Biometric
+    implementation(libs.biometric)
+    
+    // TensorFlow Lite
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.support)
+    
+    // Compose
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.ui.tooling.preview)
+    
+    // Room
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    
+    // SQLCipher (for encrypted database)
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.espresso.core)
+}
+
+spotless {
+    kotlin {
+        target 'src/**/*.kt'
+        ktlint()
+        trimTrailingWhitespace()
+        indentWithSpaces(4)
+        endWithNewline()
+    }
+}

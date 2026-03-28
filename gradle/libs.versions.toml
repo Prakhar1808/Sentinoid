@@ -1,0 +1,88 @@
+[versions]
+agp = "8.10.1"
+kotlin = "2.1.0"
+coreKtx = "1.15.0"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+lifecycleRuntimeKtx = "2.8.7"
+activityCompose = "1.9.3"
+composeBom = "2024.12.01"
+tflite = "2.16.1"
+tfliteSupport = "0.4.4"
+appcompat = "1.7.0"
+security = "1.1.0-alpha06"
+coroutines = "1.9.0"
+bip39 = "2.0.3"
+spotless = "6.25.0"
+material = "1.11.0"
+qr = "3.5.2"
+usbSerial = "3.5.1"
+robolectric = "4.12"
+biometric = "1.1.0"
+room = "2.6.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
+tensorflow-lite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version.ref = "tfliteSupport" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+bip39 = { group = "cash.z.ecc.android", name = "bip39", version.ref = "bip39" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-junit = { group = "androidx.test.ext", name = "junit", version = "1.1.5" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version = "3.5.1" }
+biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+
+# QR Code bundles
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "qr" }
+zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version = "4.3.0" }
+
+# Security
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk15to18", version = "1.78" }
+bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk15to18", version = "1.78" }
+
+# USB Serial
+usb-serial = { group = "com.github.mik3y", name = "usb-serial-for-android", version.ref = "usbSerial" }
+
+# CameraX (for QR scanning)
+camera-core = { group = "androidx.camera", name = "camera-core", version = "1.3.2" }
+camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version = "1.3.2" }
+camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version = "1.3.2" }
+camera-view = { group = "androidx.camera", name = "camera-view", version = "1.3.2" }
+
+# Lifecycle
+lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version = "2.7.0" }
+lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version = "2.7.0" }
+
+# Navigation
+navigation-fragment = { group = "androidx.navigation", name = "navigation-fragment-ktx", version = "2.7.7" }
+navigation-ui = { group = "androidx.navigation", name = "navigation-ui-ktx", version = "2.7.7" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+
+[bundles]
+androidx = ["androidx-core-ktx", "androidx-appcompat", "lifecycle-viewmodel", "lifecycle-livedata", "navigation-fragment", "navigation-ui"]
+security = ["androidx-security-crypto", "bouncycastle-bcprov", "bouncycastle-bcpkix"]
+qr = ["zxing-core", "zxing-android-embedded", "camera-core", "camera-camera2", "camera-lifecycle", "camera-view"]

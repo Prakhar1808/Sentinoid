@@ -1,12 +1,25 @@
 package com.sentinoid.shield
 
-import android.app.Service
+import android.app.job.JobInfo
+import android.app.job.JobParameters
+import android.app.job.JobScheduler
+import android.app.job.JobService
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.IBinder
+import android.os.BatteryManager
+import android.os.Build
+import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * Background security monitoring service.
@@ -140,8 +153,24 @@ class WatchdogService : Service() {
         return Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
+    private fun isPowerSaveMode(): Boolean {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            powerManager.isPowerSaveMode
+        } else {
+            false
+        }
+    }
+
+    private fun isCriticalBattery(): Boolean {
+        val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val level = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        return level < LOW_BATTERY_THRESHOLD
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.coroutineContext[Job]?.cancel()
     }
 
     override fun onDestroy() {
