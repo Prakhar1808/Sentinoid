@@ -62,6 +62,7 @@ class HoneypotEngine(private val context: Context) {
         val lastAccessTime: Long?,
     )
 
+    private val activityLogger by lazy { ActivityLogger.getInstance(context) }
     private val securePreferences = SecurePreferences(context)
     private val accessLog: MutableList<AccessEvent> = mutableListOf<AccessEvent>()
     private val honeypotDir: File by lazy {
@@ -76,6 +77,9 @@ class HoneypotEngine(private val context: Context) {
         if (!isHoneypotInitialized()) {
             createDecoyFiles()
             securePreferences.putBoolean("honeypot_initialized", true)
+            activityLogger.logHoneypot("Honeypot initialized with ${honeypotDir.listFiles()?.size ?: 0} decoy files", ActivityLogger.SEVERITY_INFO)
+        } else {
+            activityLogger.logHoneypot("Honeypot already initialized", ActivityLogger.SEVERITY_DEBUG)
         }
     }
 
@@ -263,6 +267,16 @@ class HoneypotEngine(private val context: Context) {
         }
 
         triggerSilentAlarm(event)
+        
+        activityLogger.logHoneypot(
+            "Unauthorized access detected: ${File(event.filePath).name}",
+            ActivityLogger.SEVERITY_CRITICAL,
+            mapOf(
+                "filePath" to event.filePath,
+                "operation" to event.operation,
+                "timestamp" to event.timestamp.toString()
+            )
+        )
 
         val key = "honeypot_access_${event.timestamp}"
         securePreferences.putString(key, "${event.filePath}|${event.operation}")
@@ -302,10 +316,12 @@ class HoneypotEngine(private val context: Context) {
     }
 
     fun purgeHoneypot() {
+        val fileCount = honeypotDir.listFiles()?.size ?: 0
         honeypotDir.deleteRecursively()
         honeypotDir.mkdirs()
         accessLog.clear()
         securePreferences.putBoolean("honeypot_initialized", false)
+        activityLogger.logHoneypot("Honeypot purged - $fileCount decoy files removed", ActivityLogger.SEVERITY_WARNING)
     }
 
     fun getAccessLog(): List<AccessEvent> {
@@ -316,5 +332,6 @@ class HoneypotEngine(private val context: Context) {
         purgeHoneypot()
         createDecoyFiles()
         securePreferences.putBoolean("honeypot_initialized", true)
+        activityLogger.logHoneypot("Decoy files regenerated", ActivityLogger.SEVERITY_INFO, mapOf("count" to "10"))
     }
 }
