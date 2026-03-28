@@ -37,6 +37,8 @@ class CryptoManager(private val context: Context) {
 
     private val securePreferences = SecurePreferences(context)
 
+    fun getContext(): Context = context
+
     fun isVaultInitialized(): Boolean {
         return securePreferences.getBoolean(PREFS_VAULT_INITIALIZED, false)
     }
