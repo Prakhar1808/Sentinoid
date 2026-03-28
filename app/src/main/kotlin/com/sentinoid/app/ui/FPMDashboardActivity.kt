@@ -255,14 +255,14 @@ class FPMDashboardActivity : AppCompatActivity() {
 
         val features =
             listOf(
-                Pair("Camera", "camera"),
-                Pair("Microphone", "microphone"),
-                Pair("Location", "location"),
-                Pair("Bluetooth", "bluetooth"),
-                Pair("NFC", "nfc"),
+                Triple("Camera", "camera", true),
+                Triple("Microphone", "microphone", true),
+                Triple("Location", "location", true),
+                Triple("Bluetooth", "bluetooth", false),
+                Triple("NFC", "nfc", false),
             )
 
-        features.forEach { (name, key) ->
+        features.forEach { (name, key, canBlock) ->
             val isAvailable = featurePermissionManager.isFeatureAvailable(key)
             val isAuthorized = featurePermissionManager.isFeatureAuthorized(key)
             val isBlocked = securePreferences.getBoolean(getBlockPrefKey(key), false)
@@ -287,6 +287,16 @@ class FPMDashboardActivity : AppCompatActivity() {
                 ),
             )
 
+            val switch = view.findViewById<SwitchMaterial>(R.id.switch_feature_block)
+            if (canBlock) {
+                switch.isChecked = isBlocked
+                switch.setOnCheckedChangeListener { _, checked ->
+                    blockFeature(key, checked)
+                }
+            } else {
+                switch.visibility = View.GONE
+            }
+
             containerFeatureStatus.addView(view)
         }
     }
@@ -298,6 +308,40 @@ class FPMDashboardActivity : AppCompatActivity() {
             "location" -> FPMInterceptorService.PREFS_BLOCK_LOCATION
             else -> "block_$feature"
         }
+    }
+
+    private fun blockFeature(
+        feature: String,
+        blocked: Boolean,
+    ) {
+        when (feature) {
+            "camera" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, blocked)
+                if (blocked) {
+                    featurePermissionManager.mockFeature(feature, false, false)
+                } else {
+                    featurePermissionManager.unmockFeature(feature)
+                }
+            }
+            "microphone" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, blocked)
+                if (blocked) {
+                    featurePermissionManager.mockFeature(feature, false, false)
+                } else {
+                    featurePermissionManager.unmockFeature(feature)
+                }
+            }
+            "location" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, blocked)
+                if (blocked) {
+                    featurePermissionManager.mockFeature(feature, false, false)
+                } else {
+                    featurePermissionManager.unmockFeature(feature)
+                }
+            }
+        }
+        Toast.makeText(this, "$feature ${if (blocked) "blocked" else "unblocked"}", Toast.LENGTH_SHORT).show()
+        updateFeatureStatus()
     }
 
     private fun updateThreatLevel() {
@@ -442,14 +486,34 @@ class FPMDashboardActivity : AppCompatActivity() {
         securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, true)
         securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, true)
 
+        featurePermissionManager.mockFeature("camera", false, false)
+        featurePermissionManager.mockFeature("microphone", false, false)
+        featurePermissionManager.mockFeature("location", false, false)
+
+        featurePermissionManager.jamSensor("camera")
+        featurePermissionManager.jamSensor("microphone")
+        featurePermissionManager.jamSensor("gps")
+
         Toast.makeText(this, "Auto-protection: All features blocked", Toast.LENGTH_LONG).show()
     }
 
     private fun autoBlockFeature(feature: String) {
         when (feature.lowercase()) {
-            "camera" -> securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, true)
-            "microphone" -> securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, true)
-            "location" -> securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, true)
+            "camera" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, true)
+                featurePermissionManager.mockFeature("camera", false, false)
+                featurePermissionManager.jamSensor("camera")
+            }
+            "microphone" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, true)
+                featurePermissionManager.mockFeature("microphone", false, false)
+                featurePermissionManager.jamSensor("microphone")
+            }
+            "location" -> {
+                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, true)
+                featurePermissionManager.mockFeature("location", false, false)
+                featurePermissionManager.jamSensor("gps")
+            }
         }
 
         Toast.makeText(this, "Auto-protection: $feature blocked", Toast.LENGTH_LONG).show()
