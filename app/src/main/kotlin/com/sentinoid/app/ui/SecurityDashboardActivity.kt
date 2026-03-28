@@ -41,6 +41,7 @@ class SecurityDashboardActivity : AppCompatActivity() {
     private lateinit var btnPurgeKeys: MaterialButton
     private lateinit var btnTestHoneypot: MaterialButton
     private lateinit var btnCheckTamper: MaterialButton
+    private lateinit var btnOpenFPM: MaterialButton
 
     private val tamperReceiver =
         object : BroadcastReceiver() {
@@ -85,6 +86,7 @@ class SecurityDashboardActivity : AppCompatActivity() {
         btnPurgeKeys = findViewById(R.id.btn_purge_keys)
         btnTestHoneypot = findViewById(R.id.btn_test_honeypot)
         btnCheckTamper = findViewById(R.id.btn_check_tamper)
+        btnOpenFPM = findViewById(R.id.btn_open_fpm)
 
         // Load saved preferences
         switchBlockCamera.isChecked =
@@ -134,6 +136,12 @@ class SecurityDashboardActivity : AppCompatActivity() {
         btnPurgeKeys.setOnClickListener { showPurgeConfirmDialog() }
         btnTestHoneypot.setOnClickListener { testHoneypot() }
         btnCheckTamper.setOnClickListener { checkTamperStatus() }
+        btnOpenFPM.setOnClickListener { openFPMDashboard() }
+    }
+
+    private fun openFPMDashboard() {
+        val intent = Intent(this, FPMDashboardActivity::class.java)
+        startActivity(intent)
     }
 
     private fun registerReceivers() {

@@ -165,6 +165,13 @@
                     android:layout_marginBottom="8dp" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_open_fpm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔒 Feature Permission Manager"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_test_honeypot"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
