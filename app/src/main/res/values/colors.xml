@@ -1,18 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App Colors -->
-    <color name="background_dark">#FF121212</color>
-    <color name="card_background">#FF1E1E1E</color>
+    <!-- Core Background Colors -->
+    <color name="background_dark">#FF0A0A0F</color>
+    <color name="background_elevated">#FF141419</color>
+    <color name="card_background">#FF1A1A22</color>
+    <color name="background_surface">#FF20202A</color>
+
+    <!-- Primary Accent - Cyber Green -->
     <color name="accent_green">#FF00E676</color>
+    <color name="accent_green_dark">#FF00C853</color>
+    <color name="accent_green_light">#FF69F0AE</color>
+    <color name="accent_green_glow">#3300E676</color>
+
+    <!-- Secondary Accent - Electric Blue -->
     <color name="accent_blue">#FF00B0FF</color>
-    <color name="text_primary">#FFFFFFFF</color>
-    <color name="text_secondary">#FFB0B0B0</color>
-    <color name="success_green">#FF4CAF50</color>
-    <color name="warning_yellow">#FFFFC107</color>
-    <color name="error_red">#FFF44336</color>
-    
+    <color name="accent_blue_dark">#FF0091EA</color>
+    <color name="accent_blue_light">#FF80D8FF</color>
+    <color name="accent_blue_glow">#3300B0FF</color>
+
+    <!-- Tertiary Accent - Purple/Indigo for Premium -->
+    <color name="accent_purple">#FF7C4DFF</color>
+    <color name="accent_purple_light">#FFB388FF</color>
+    <color name="accent_purple_glow">#337C4DFF</color>
+
     <!-- Status Colors -->
     <color name="status_secure">#FF00E676</color>
     <color name="status_warning">#FFFFC107</color>
     <color name="status_critical">#FFF44336</color>
+    <color name="status_info">#FF2196F3</color>
+
+    <!-- Semantic Colors -->
+    <color name="success_green">#FF4CAF50</color>
+    <color name="success_green_light">#FF81C784</color>
+    <color name="warning_yellow">#FFFFC107</color>
+    <color name="warning_yellow_light">#FFFFD54F</color>
+    <color name="error_red">#FFF44336</color>
+    <color name="error_red_light">#FFE57373</color>
+    <color name="error_red_glow">#33F44336</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#FFB0B0C0</color>
+    <color name="text_tertiary">#FF808090</color>
+    <color name="text_disabled">#FF606070</color>
+
+    <!-- Gradient Colors -->
+    <color name="gradient_start">#FF00E676</color>
+    <color name="gradient_end">#FF00B0FF</color>
+    <color name="gradient_purple_start">#FF7C4DFF</color>
+    <color name="gradient_purple_end">#FF00B0FF</color>
+
+    <!-- Threat Level Colors -->
+    <color name="threat_critical">#FFF44336</color>
+    <color name="threat_high">#FFFF9800</color>
+    <color name="threat_elevated">#FFFFC107</color>
+    <color name="threat_normal">#FF00E676</color>
+    <color name="threat_low">#FF4CAF50</color>
+
+    <!-- Divider and Border -->
+    <color name="divider">#33FFFFFF</color>
+    <color name="border">#44FFFFFF</color>
+    <color name="ripple">#33FFFFFF</color>
+
+    <!-- Card Backgrounds (Legacy Compatibility) -->
+    <color name="background_card">#FF1A1A22</color>
+    <color name="card_background_elevated">#FF2A2A38</color>
+    <color name="card_background_pressed">#FF333344</color>
+
+    <!-- Hardware Status Colors -->
+    <color name="hardware_active">#FF00E676</color>
+    <color name="hardware_blocked">#FFF44336</color>
+    <color name="hardware_unavailable">#FF808090</color>
+    <color name="hardware_permission">#FFFFC107</color>
 </resources>

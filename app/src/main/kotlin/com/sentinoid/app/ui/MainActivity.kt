@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cardRecovery: MaterialCardView
     private lateinit var cardBridge: MaterialCardView
     private lateinit var cardDashboard: MaterialCardView
+    private lateinit var cardFPM: MaterialCardView
     private lateinit var cardHoneypot: MaterialCardView
     private lateinit var cardAtmosphere: MaterialCardView
 
@@ -95,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         cardRecovery = findViewById(R.id.card_recovery)
         cardBridge = findViewById(R.id.card_bridge)
         cardDashboard = findViewById(R.id.card_dashboard)
+        cardFPM = findViewById(R.id.card_fpm)
         cardHoneypot = findViewById(R.id.card_honeypot)
         cardAtmosphere = findViewById(R.id.card_atmosphere)
 
@@ -102,6 +104,7 @@ class MainActivity : AppCompatActivity() {
         cardRecovery.setOnClickListener { navigateToRecovery() }
         cardBridge.setOnClickListener { toggleBridgeMode() }
         cardDashboard.setOnClickListener { navigateToDashboard() }
+        cardFPM.setOnClickListener { navigateToFPM() }
         cardHoneypot.setOnClickListener { showHoneypotStats() }
         cardAtmosphere.setOnClickListener { showAtmosphereDialog() }
 
@@ -205,6 +208,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun navigateToDashboard() {
         startActivity(Intent(this, SecurityDashboardActivity::class.java))
+    }
+
+    private fun navigateToFPM() {
+        startActivity(Intent(this, FPMDashboardActivity::class.java))
     }
 
     private fun toggleBridgeMode() {
