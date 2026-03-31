@@ -12,6 +12,8 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.sentinoid.app.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -109,7 +111,12 @@ class AoaService : Service() {
             Log.e(TAG, "Error closing streams", e)
         }
 
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(Service.STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
         stopSelf()
         Log.i(TAG, "AOA Service stopped")
     }
@@ -123,7 +130,7 @@ class AoaService : Service() {
                 PendingIntent.FLAG_IMMUTABLE,
             )
 
-        return Notification.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Sentinoid Active")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_info)

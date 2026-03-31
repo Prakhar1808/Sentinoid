@@ -6,22 +6,75 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.ACCESSIBILITY_SERVICE"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN"
+        tools:ignore="ProtectedPermissions" />
 
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.biometrics" android:required="false" />
     
     <application
-        android:name=".SentinoidApp"
-        android:allowBackup="true"
+        android:name="com.sentinoid.app.SentinoidApp"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Sentinoid">
+        android:theme="@style/Theme.Sentinoid"
+        android:usesCleartextTraffic="false">
+
+        <!-- Device Admin Receiver -->
+        <receiver
+            android:name="com.sentinoid.app.receiver.SentinoidDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_policies" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
         
         <service 
-            android:name=".AoaService"
+            android:name="com.sentinoid.app.service.FPMInterceptorService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="Sentinoid Feature Permission Manager"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+        
+        <service 
+            android:name="com.sentinoid.app.service.WatchdogService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -30,8 +83,31 @@
                 android:value="security_monitoring" />
         </service>
         
+        <!-- Vault Service for encrypted file storage -->
         <service 
-            android:name=".LogCapture"
+            android:name="com.sentinoid.shield.VaultService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vault_encryption" />
+        </service>
+        
+        <!-- AOA Service for USB log streaming -->
+        <service 
+            android:name="com.sentinoid.shield.AoaService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="usb_log_streaming" />
+        </service>
+        
+        <!-- Log Capture Service -->
+        <service 
+            android:name="com.sentinoid.shield.LogCapture"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -40,35 +116,73 @@
                 android:value="log_capture" />
         </service>
         
-        <receiver android:name=".UsbReceiver" android:exported="true">
+        <receiver 
+            android:name="com.sentinoid.app.receiver.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        
+        <!-- USB Receiver for AOA connection -->
+        <receiver 
+            android:name="com.sentinoid.app.receiver.UsbAttachReceiver"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
+                <action android:name="com.sentinoid.app.USB_PERMISSION" />
+            </intent-filter>
+        </receiver>
+        
+        <receiver 
+            android:name="com.sentinoid.app.service.WatchdogResurrectionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.sentinoid.app.action.TRIGGER_RESURRECTION" />
             </intent-filter>
         </receiver>
         
         <activity
-            android:name=".ui.MainActivity"
+            android:name="com.sentinoid.app.ui.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Sentinoid">
+            android:theme="@style/Theme.Sentinoid"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".ui.RecoveryActivity" android:exported="false" />
-        <activity android:name=".ui.SecurityDashboardActivity" android:exported="false" />
-        <activity android:name=".ui.FPMDashboardActivity" android:exported="false" />
-        <activity android:name=".ui.LogsDashboardActivity" android:exported="false" />
+        <activity 
+            android:name="com.sentinoid.app.ui.RecoveryActivity" 
+            android:exported="false" 
+            android:screenOrientation="portrait" />
+        <activity 
+            android:name="com.sentinoid.app.ui.SecurityDashboardActivity" 
+            android:exported="false" 
+            android:screenOrientation="portrait" />
+        <activity 
+            android:name="com.sentinoid.app.ui.FPMDashboardActivity" 
+            android:exported="false" 
+            android:screenOrientation="portrait" />
+        <activity 
+            android:name="com.sentinoid.app.ui.LogsDashboardActivity" 
+            android:exported="false" 
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.sentinoid.app.ui.WatchdogStatusActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.sentinoid.app.ui.HoneypotStatusActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
-        <service
-            android:name=".service.WatchdogService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
-                android:value="Watchdog security monitoring for air-gapped protection and tamper detection." />
-        </service>
     </application>
 
 </manifest>

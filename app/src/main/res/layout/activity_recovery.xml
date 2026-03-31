@@ -53,14 +53,14 @@
                             android:text="Offline Recovery"
                             android:textSize="24sp"
                             android:textStyle="bold"
-                            android:textColor="#FF0A0A0F" />
+                            android:textColor="#FFFFFF" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="BIP39 + Shamir's Secret Sharing"
                             android:textSize="14sp"
-                            android:textColor="#CC0A0A0F" />
+                            android:textColor="#CCFFFFFF" />
                     </LinearLayout>
 
                 </LinearLayout>

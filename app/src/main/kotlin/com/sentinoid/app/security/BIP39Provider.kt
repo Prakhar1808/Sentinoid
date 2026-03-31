@@ -17,7 +17,7 @@ class BIP39Provider {
         // BIP39 English wordlist (Extended for functional testing)
         private val WORD_LIST =
             arrayOf(
-                "abandon", "ability", "able", "about", "above", "absent", "absorb", "absorb",
+                "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract",
                 "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid",
                 "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual",
                 "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance",

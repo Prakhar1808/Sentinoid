@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="4dp"
-    android:layout_marginVertical="6dp"
+    android:layout_marginBottom="8dp"
     app:cardBackgroundColor="@color/card_background"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
@@ -19,18 +18,18 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Severity Indicator with Icon -->
+        <!-- Status Icon Container -->
         <FrameLayout
-            android:id="@+id/fl_severity_container"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:id="@+id/fl_status_container"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:layout_marginEnd="16dp"
             android:background="@drawable/bg_status_secure">
 
             <ImageView
-                android:id="@+id/iv_severity_icon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:id="@+id/iv_status_icon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_check_circle"
                 android:layout_gravity="center"
                 app:tint="@color/background_dark" />
@@ -44,56 +43,36 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tv_event_type"
+                android:id="@+id/tv_check_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
-                tools:text="Camera Blocked" />
+                tools:text="Root Detection" />
 
             <TextView
-                android:id="@+id/tv_event_package"
+                android:id="@+id/tv_check_description"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary"
-                android:layout_marginTop="4dp"
                 android:maxLines="1"
                 android:ellipsize="end"
-                tools:text="com.suspicious.app" />
+                tools:text="No root access detected" />
 
         </LinearLayout>
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/tv_check_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="end">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_event_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="2 min ago"
-                android:textSize="11sp"
-                app:chipMinHeight="28dp"
-                app:chipBackgroundColor="@color/background_elevated"
-                app:chipStrokeWidth="0dp"
-                tools:text="2 min ago" />
-
-            <TextView
-                android:id="@+id/tv_event_severity"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="INFO"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="@color/accent_green"
-                android:layout_marginTop="4dp"
-                tools:text="INFO" />
-
-        </LinearLayout>
+            android:layout_marginStart="8dp"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_green"
+            tools:text="PASS" />
 
     </LinearLayout>
 

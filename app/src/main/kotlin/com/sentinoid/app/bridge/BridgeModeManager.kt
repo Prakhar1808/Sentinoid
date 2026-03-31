@@ -1,5 +1,6 @@
 package com.sentinoid.app.bridge
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -32,6 +33,9 @@ class BridgeModeManager(private val context: Context) {
         private const val BRIDGE_BAUD_RATE = 115200
         private const val MAX_PACKET_SIZE = 1024
         private const val PROTOCOL_VERSION = "1.0"
+        private const val MAX_RETRY_ATTEMPTS = 3
+        private const val RETRY_DELAY_MS = 1000L
+        private const val CONNECTION_TIMEOUT_MS = 10000L
 
         // Action tokens
         const val ACTION_OFFLOAD_REQUEST = "OFFLOAD_REQUEST"
@@ -134,7 +138,12 @@ class BridgeModeManager(private val context: Context) {
             )
 
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        context.registerReceiver(usbPermissionReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(usbPermissionReceiver, filter)
+        }
 
         usbManager.requestPermission(device, permissionIntent)
 
@@ -176,7 +185,10 @@ class BridgeModeManager(private val context: Context) {
         return availableDrivers.map { it.device }
     }
 
-    fun connectToDevice(device: UsbDevice) {
+    fun connectToDevice(
+        device: UsbDevice,
+        retryCount: Int = 0,
+    ) {
         if (!usbManager.hasPermission(device)) {
             _connectionState.value = BridgeState.Error("No USB permission")
             return
@@ -184,65 +196,89 @@ class BridgeModeManager(private val context: Context) {
 
         _connectionState.value = BridgeState.Connecting
 
-        val driver =
-            UsbSerialProber.getDefaultProber().probeDevice(device)
-                ?: run {
-                    _connectionState.value = BridgeState.Error("No serial driver found")
-                    return
-                }
-
-        val connection =
-            usbManager.openDevice(device)
-                ?: run {
-                    _connectionState.value = BridgeState.Error("Failed to open USB device")
-                    return
-                }
-
-        usbConnection = connection
-
-        val port =
-            driver.ports.firstOrNull()
-                ?: run {
-                    _connectionState.value = BridgeState.Error("No serial port available")
-                    return
-                }
-
         try {
-            port.open(connection)
-            port.setParameters(
-                BRIDGE_BAUD_RATE,
-                UsbSerialPort.DATABITS_8,
-                UsbSerialPort.STOPBITS_1,
-                UsbSerialPort.PARITY_NONE,
-            )
+            val driver =
+                UsbSerialProber.getDefaultProber().probeDevice(device)
+                    ?: run {
+                        _connectionState.value = BridgeState.Error("No serial driver found")
+                        return
+                    }
 
-            serialPort = port
+            val connection =
+                usbManager.openDevice(device)
+                    ?: run {
+                        _connectionState.value = BridgeState.Error("Failed to open USB device")
+                        return
+                    }
 
-            serialIOManager =
-                SerialInputOutputManager(
-                    port,
-                    object : SerialInputOutputManager.Listener {
-                        override fun onNewData(data: ByteArray) {
-                            handleIncomingData(data)
-                        }
+            usbConnection = connection
 
-                        override fun onRunError(e: Exception) {
-                            _connectionState.value = BridgeState.Error("Serial error: ${e.message}")
-                            disconnect()
-                        }
-                    },
-                ).apply {
-                    executor.submit(this)
-                }
+            val port =
+                driver.ports.firstOrNull()
+                    ?: run {
+                        _connectionState.value = BridgeState.Error("No serial port available")
+                        return
+                    }
 
-            _connectionState.value = BridgeState.Connected(device.productName ?: "Unknown Device")
-            bridgeListener?.onConnectionEstablished(device)
+            try {
+                port.open(connection)
+                port.setParameters(
+                    BRIDGE_BAUD_RATE,
+                    UsbSerialPort.DATABITS_8,
+                    UsbSerialPort.STOPBITS_1,
+                    UsbSerialPort.PARITY_NONE,
+                )
 
-            // Send handshake
-            sendHandshake()
+                serialPort = port
+
+                serialIOManager =
+                    SerialInputOutputManager(
+                        port,
+                        object : SerialInputOutputManager.Listener {
+                            override fun onNewData(data: ByteArray) {
+                                handleIncomingData(data)
+                            }
+
+                            override fun onRunError(e: Exception) {
+                                _connectionState.value = BridgeState.Error("Serial error: ${e.message}")
+                                handleConnectionError(device, retryCount)
+                            }
+                        },
+                    ).apply {
+                        executor.submit(this)
+                    }
+
+                _connectionState.value = BridgeState.Connected(device.productName ?: "Unknown Device")
+                bridgeListener?.onConnectionEstablished(device)
+                activityLogger.logBridge("Connected to ${device.productName}", ActivityLogger.SEVERITY_INFO)
+
+                // Send handshake
+                sendHandshake()
+            } catch (e: Exception) {
+                _connectionState.value = BridgeState.Error("Connection failed: ${e.message}")
+                handleConnectionError(device, retryCount)
+            }
         } catch (e: Exception) {
-            _connectionState.value = BridgeState.Error("Connection failed: ${e.message}")
-            disconnect()
+            _connectionState.value = BridgeState.Error("Unexpected error: ${e.message}")
+            activityLogger.logBridge("Connection failed: ${e.message}", ActivityLogger.SEVERITY_ERROR)
+        }
+    }
+
+    private fun handleConnectionError(
+        device: UsbDevice,
+        retryCount: Int,
+    ) {
+        disconnect()
+
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+            activityLogger.logBridge(
+                "Connection failed, retrying... (attempt ${retryCount + 1}/$MAX_RETRY_ATTEMPTS)",
+                ActivityLogger.SEVERITY_WARNING,
+            )
+            Thread.sleep(RETRY_DELAY_MS)
+            connectToDevice(device, retryCount + 1)
+        } else {
+            activityLogger.logBridge("Connection failed after $MAX_RETRY_ATTEMPTS attempts", ActivityLogger.SEVERITY_ERROR)
         }
     }
 

@@ -13,7 +13,6 @@ tfliteSupport = "0.4.4"
 appcompat = "1.7.0"
 security = "1.1.0-alpha06"
 coroutines = "1.9.0"
-bip39 = "2.0.3"
 spotless = "6.25.0"
 material = "1.11.0"
 qr = "3.5.2"
@@ -21,6 +20,7 @@ usbSerial = "3.5.1"
 robolectric = "4.12"
 biometric = "1.1.0"
 room = "2.6.1"
+sqlcipher = "4.5.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,7 +43,6 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
-bip39 = { group = "cash.z.ecc.android", name = "bip39", version.ref = "bip39" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version = "1.1.5" }
@@ -51,6 +50,7 @@ espresso-core = { group = "androidx.test.espresso", name = "espresso-core", vers
 biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version.ref = "sqlcipher" }
 
 # QR Code bundles
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "qr" }

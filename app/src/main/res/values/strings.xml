@@ -4,4 +4,377 @@
     <string name="status_not_configured">Not Configured</string>
     <string name="btn_resetup_recovery">Reset Recovery</string>
     <string name="btn_setup_recovery">Setup Recovery</string>
+    
+    <!-- Security Status -->
+    <string name="vault_ready">Vault Ready</string>
+    <string name="vault_not_ready">Vault Not Ready</string>
+    <string name="keys_valid">Keys Valid</string>
+    <string name="keys_invalid">Keys Invalid</string>
+    <string name="watchdog_active">Watchdog Active</string>
+    <string name="watchdog_inactive">Watchdog Inactive</string>
+    <string name="honeypot_active">Honeypot Active</string>
+    <string name="honeypot_inactive">Honeypot Inactive</string>
+    <string name="no_tampering">No Tampering Detected</string>
+    <string name="tamper_detected">Security Alert</string>
+    
+    <!-- Hardware Controls -->
+    <string name="camera_blocked">Camera Blocked</string>
+    <string name="camera_active">Camera Active</string>
+    <string name="microphone_blocked">Microphone Blocked</string>
+    <string name="microphone_active">Microphone Active</string>
+    <string name="location_blocked">Location Blocked</string>
+    <string name="location_active">Location Active</string>
+    
+    <!-- Navigation -->
+    <string name="nav_security_dashboard">Security Dashboard</string>
+    <string name="nav_fpm">Feature Permission Manager</string>
+    <string name="nav_recovery">Recovery</string>
+    <string name="nav_logs">Activity Logs</string>
+    <string name="nav_honeypot">Honeypot Status</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Biometric -->
+    <string name="biometric_title">Sentinoid Security</string>
+    <string name="biometric_subtitle">Authenticate to access your security vault</string>
+    <string name="biometric_negative">Cancel</string>
+    <string name="biometric_not_enrolled">Please set up biometric authentication in system settings for maximum security.</string>
+    <string name="biometric_required">Biometric Required</string>
+    
+    <!-- Dialogs -->
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_continue">Continue</string>
+    <string name="dialog_close">Close</string>
+    <string name="dialog_later">Later</string>
+    <string name="dialog_warning">Warning</string>
+    <string name="dialog_error">Error</string>
+    <string name="dialog_success">Success</string>
+    
+    <!-- Recovery -->
+    <string name="recovery_title">Offline Recovery</string>
+    <string name="recovery_subtitle">BIP39 + Shamir Secret Sharing</string>
+    <string name="recovery_setup_message">This will generate a 24-word mnemonic and split it into 3 shards (2-of-3 required for recovery). Write down your shards and store them in separate secure locations.</string>
+    <string name="recovery_shard_count">2 of 3 shards required for recovery</string>
+    <string name="recovery_enter_shards">Enter 2 or 3 Shards</string>
+    <string name="recovery_enter_mnemonic">Enter 24-Word Mnemonic</string>
+    <string name="recovery_success">Recovery Successful</string>
+    <string name="recovery_vault_restored">Your vault has been successfully recovered.</string>
+    
+    <!-- Emergency Purge -->
+    <string name="purge_title">Emergency Key Purge</string>
+    <string name="purge_message">This will permanently delete all encryption keys. Your vault data will be unrecoverable without backup shards. Continue?</string>
+    <string name="purge_confirm">Purge Keys</string>
+    <string name="purge_complete">All keys purged</string>
+    
+    <!-- FPM -->
+    <string name="fpm_service_active">FPM Service Active</string>
+    <string name="fpm_service_inactive">FPM Service Inactive</string>
+    <string name="fpm_threat_normal">NORMAL</string>
+    <string name="fpm_threat_elevated">ELEVATED</string>
+    <string name="fpm_threat_high">HIGH</string>
+    <string name="fpm_threat_critical">CRITICAL</string>
+    <string name="fpm_auto_block_enabled">Auto-blocking enabled</string>
+    <string name="fpm_accessibility_required">FPM requires accessibility permission to intercept hardware feature requests. Please enable it in settings.</string>
+    
+    <!-- Bridge Mode -->
+    <string name="bridge_connected">Connected</string>
+    <string name="bridge_connecting">Connecting</string>
+    <string name="bridge_disconnected">Disconnected</string>
+    <string name="bridge_error">Connection Error</string>
+    <string name="bridge_select_device">Select Bridge Device</string>
+    <string name="bridge_no_devices">No compatible USB devices found. Connect an AMD ULTRA or MOBILE-A device.</string>
+    
+    <!-- Atmosphere -->
+    <string name="atmosphere_lite">LITE Atmosphere</string>
+    <string name="atmosphere_ultra">ULTRA Atmosphere</string>
+    <string name="atmosphere_mobile_a">MOBILE-A Atmosphere</string>
+    <string name="atmosphere_premium_features">Premium Features Available</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">Sentinoid Feature Permission Manager - Monitors and intercepts hardware access requests from apps to protect your privacy.</string>
+    
+    <!-- Main Activity Dialogs -->
+    <string name="dialog_security_status_title">Security Status</string>
+    <string name="dialog_no_usb_device_title">No USB Device</string>
+    <string name="dialog_honeypot_status_title">Honeypot Status</string>
+    <string name="dialog_setup_recovery_title">Setup Recovery</string>
+    <string name="dialog_atmosphere_details_title">Atmosphere Details</string>
+    <string name="dialog_select_bridge_device_title">Select Bridge Device</string>
+    
+    <!-- Status Messages -->
+    <string name="status_atmosphere">Atmosphere</string>
+    <string name="status_vault">Vault</string>
+    <string name="status_vault_initialized">Initialized</string>
+    <string name="status_vault_not_ready">Not Ready</string>
+    <string name="status_keys">Keys</string>
+    <string name="status_recovery">Recovery</string>
+    <string name="status_honeypot">Honeypot</string>
+    <string name="status_configured_value">Configured</string>
+    <string name="status_not_set_up">Not Set Up</string>
+    <string name="status_active">Active</string>
+    <string name="status_inactive">Inactive</string>
+    
+    <!-- Honeypot -->
+    <string name="honeypot_stats_title">Honeypot Statistics</string>
+    <string name="honeypot_decoy_files">Decoy Files</string>
+    <string name="honeypot_access_attempts">Access Attempts</string>
+    <string name="honeypot_unique_attackers">Unique Attackers</string>
+    <string name="honeypot_last_access">Last Access</string>
+    <string name="honeypot_no_access_detected">No unauthorized access detected</string>
+    <string name="honeypot_button_regenerate">Regenerate Decoys</string>
+    <string name="honeypot_button_close">Close</string>
+    
+    <!-- Recovery Dialogs -->
+    <string name="recovery_setup_prompt">You haven\'t set up offline recovery yet. Would you like to configure BIP39 + Shamir backup?</string>
+    <string name="recovery_button_setup">Setup</string>
+    <string name="recovery_button_later">Later</string>
+    
+    <!-- Bridge -->
+    <string name="bridge_button_connect">Connect</string>
+    <string name="bridge_unknown_device">Unknown Device</string>
+    
+    <!-- Biometric -->
+    <string name="biometric_open_settings">Open Settings</string>
+    
+    <!-- Toast Messages -->
+    <string name="toast_camera_blocking_enabled">Camera blocking enabled</string>
+    <string name="toast_camera_blocking_disabled">Camera blocking disabled</string>
+    <string name="toast_mic_blocking_enabled">Microphone blocking enabled</string>
+    <string name="toast_mic_blocking_disabled">Microphone blocking disabled</string>
+    <string name="toast_location_blocking_enabled">Location blocking enabled</string>
+    <string name="toast_location_blocking_disabled">Location blocking disabled</string>
+    <string name="toast_decoys_regenerated">Decoys regenerated</string>
+    <string name="toast_fpm_enabled">FPM Service enabled</string>
+    <string name="toast_fpm_disabled">FPM Service disabled</string>
+    <string name="toast_events_cleared">Event history cleared</string>
+    <string name="toast_keys_purged">All keys purged. Use recovery to restore.</string>
+    <string name="toast_purge_failed">Purge failed</string>
+    
+    <!-- Hardware Features -->
+    <string name="feature_camera">Camera</string>
+    <string name="feature_microphone">Microphone</string>
+    <string name="feature_location">Location</string>
+    <string name="feature_bluetooth">Bluetooth</string>
+    <string name="feature_nfc">NFC</string>
+    
+    <!-- Status Values -->
+    <string name="state_blocked">Blocked</string>
+    <string name="state_unblocked">unblocked</string>
+    <string name="state_unavailable">Unavailable</string>
+    <string name="state_no_permission">No Permission</string>
+    <string name="state_enabled">enabled</string>
+    <string name="state_disabled">disabled</string>
+    
+    <!-- Time -->
+    <string name="time_just_now">Just now</string>
+    <string name="time_min_ago">%d min ago</string>
+    <string name="time_hr_ago">%d hr ago</string>
+    <string name="time_none">None</string>
+    
+    <!-- Service Status -->
+    <string name="service_status_active">Active</string>
+    <string name="service_status_inactive">Inactive</string>
+    
+    <!-- Threat Levels -->
+    <string name="threat_normal">NORMAL</string>
+    <string name="threat_elevated">ELEVATED</string>
+    <string name="threat_high">HIGH</string>
+    <string name="threat_critical">CRITICAL</string>
+    
+    <!-- Logs -->
+    <string name="logs_no_logs_available">No logs available</string>
+    <string name="logs_showing_count">Showing %d logs</string>
+    <string name="logs_export_title">Export Logs</string>
+    <string name="logs_export_message">Logs exported. Length: %d characters</string>
+    <string name="logs_copy_clipboard">Copy to Clipboard</string>
+    <string name="logs_clear_title">Clear Logs</string>
+    <string name="logs_clear_all">Clear ALL logs</string>
+    <string name="logs_cancel">Cancel</string>
+    
+    <!-- Recovery Success -->
+    <string name="recovery_success_title">Recovery Successful</string>
+    <string name="recovery_success_message">Your vault has been successfully recovered.</string>
+    
+    <!-- Purge -->
+    <string name="purge_button">PURGE</string>
+    
+    <!-- FPM Service -->
+    <string name="fpm_accessibility_dialog_title">Accessibility Permission Required</string>
+    <string name="fpm_button_open_settings">Open Settings</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_fpm">FPM Security Alerts</string>
+    <string name="notification_channel_fpm_description">Feature Permission Manager security alerts</string>
+    
+    <!-- Honeypot Test -->
+    <string name="honeypot_test_title">Honeypot System Test</string>
+    <string name="honeypot_test_unauthorized_attempts">⚠️ ALERT: %d unauthorized access attempts detected!</string>
+    <string name="honeypot_test_no_access">✓ No unauthorized access detected</string>
+    <string name="honeypot_button_regenerate_decoys">Regenerate Decoys</string>
+    
+    <!-- Tamper Check -->
+    <string name="tamper_check_title">Tamper Detection Check</string>
+    <string name="tamper_check_root_detected">DETECTED</string>
+    <string name="tamper_check_root_not_present">Not Present</string>
+    <string name="tamper_check_bootloader_locked">Locked</string>
+    <string name="tamper_check_usb_enabled">ENABLED</string>
+    <string name="tamper_check_usb_disabled">Disabled</string>
+    <string name="tamper_check_keys_valid">Valid</string>
+    <string name="tamper_check_keys_invalid">INVALID</string>
+    
+    <!-- Tamper Alert -->
+    <string name="tamper_alert_title">🚨 TAMPERING DETECTED</string>
+    <string name="tamper_alert_message">Security violation detected: %s\n\nAll keys have been purged for your protection.</string>
+    <string name="tamper_alert_button">Understood</string>
+    
+    <!-- Card Labels -->
+    <string name="card_status_label">Security Status</string>
+    <string name="card_status_subtitle">System secure • All protections active</string>
+    <string name="card_dashboard_label">Dashboard</string>
+    <string name="card_dashboard_subtitle">Security Overview</string>
+    <string name="card_fpm_label">FPM</string>
+    <string name="card_fpm_subtitle">Feature Manager</string>
+    <string name="card_recovery_label">Recovery</string>
+    <string name="card_recovery_subtitle">BIP39 + Shamir</string>
+    <string name="card_bridge_label">Bridge</string>
+    <string name="card_bridge_subtitle">USB Connection</string>
+    <string name="card_honeypot_label">Honeypot Trap</string>
+    <string name="card_honeypot_subtitle">Decoy files and intrusion detection</string>
+    <string name="card_atmosphere_label">Atmosphere</string>
+    <string name="card_atmosphere_subtitle">Hardware tier and premium features</string>
+    
+    <!-- Atmosphere -->
+    <string name="atmosphere_chip_lite">LITE</string>
+    <string name="atmosphere_hardware_capabilities">Hardware Capabilities:</string>
+    <string name="atmosphere_npu">NPU</string>
+    <string name="atmosphere_npu_available">Available</string>
+    <string name="atmosphere_npu_not_available">Not Available</string>
+    <string name="atmosphere_amd_accelerator">AMD Accelerator</string>
+    <string name="atmosphere_yes">Yes</string>
+    <string name="atmosphere_no">No</string>
+    <string name="atmosphere_sev_snp">SEV-SNP</string>
+    <string name="atmosphere_sev_snp_enabled">Enabled</string>
+    <string name="atmosphere_sev_snp_not_available">Not Available</string>
+    <string name="atmosphere_rdna_gpu">RDNA GPU</string>
+    <string name="atmosphere_available_features">Available Features:</string>
+    <string name="atmosphere_module_status">Module Status:</string>
+    <string name="atmosphere_accelerator">Accelerator</string>
+    <string name="atmosphere_accelerator_ready">Ready</string>
+    <string name="atmosphere_accelerator_offline">Offline</string>
+    <string name="atmosphere_side_channel_jamming">Side-Channel Jamming</string>
+    <string name="atmosphere_rdna_obfuscation">RDNA Obfuscation</string>
+    <string name="atmosphere_gait_lock">Gait Lock</string>
+    
+    <!-- Setup Recovery -->
+    <string name="setup_recovery_title">Setup Recovery</string>
+    <string name="setup_recovery_message">This will generate a 24-word mnemonic and split it into 3 shards (2-of-3 required for recovery). Write down your shards and store them in separate secure locations.</string>
+    <string name="setup_recovery_continue">Continue</string>
+    <string name="setup_recovery_cancel">Cancel</string>
+    
+    <!-- Setup Results -->
+    <string name="setup_results_title">SAVE YOUR RECOVERY DATA</string>
+    <string name="setup_results_saved">I Have Saved These</string>
+    
+    <!-- Shard Verification -->
+    <string name="shard_verify_title">Verify Shard</string>
+    <string name="shard_verify_valid">✓ Shard is valid</string>
+    <string name="shard_verify_invalid">✗ Invalid shard format</string>
+    
+    <!-- Recovery Dialog -->
+    <string name="recovery_dialog_title">Select Recovery Method</string>
+    <string name="recovery_method_shards">Recover from Shards</string>
+    <string name="recovery_method_mnemonic">Recover from Mnemonic</string>
+    
+    <!-- Purge Dialog -->
+    <string name="purge_dialog_title">⚠️ PURGE ALL KEYS</string>
+    <string name="purge_dialog_message">This will permanently destroy all cryptographic keys and recovery data. You will need your recovery shards to restore access. This action cannot be undone.</string>
+    
+    <!-- New strings for improvements -->
+    <string name="dialog_accessibility_title">Accessibility Permission Required</string>
+    <string name="dialog_accessibility_message">FPM requires accessibility permission to intercept hardware feature requests. Please enable it in settings.</string>
+    <string name="dialog_open_settings">Open Settings</string>
+    <string name="dialog_retry">Retry</string>
+    <string name="dialog_exit">Exit</string>
+    
+    <!-- Biometric Auth -->
+    <string name="biometric_description">Your biometric data never leaves this device</string>
+    <string name="auth_failed">Authentication failed. Please try again.</string>
+    <string name="auth_lockout">Too many attempts. Please try again later.</string>
+    <string name="auth_lockout_permanent">Biometric authentication disabled. Use device PIN.</string>
+    <string name="auth_error_title">Authentication Error</string>
+
+    <!-- Alert Times -->
+    <string name="alert_just_now">Just now</string>
+    <string name="alert_minutes_ago">%d min ago</string>
+    <string name="alert_hours_ago">%d hr ago</string>
+    <string name="alert_days_ago">%d days ago</string>
+    <string name="alert_none">None</string>
+    
+    <!-- Security Dashboard -->
+    <string name="keys_rotation_needed">Rotation Needed</string>
+    <string name="honeypot_attacks_detected">%d Attack(s) Detected</string>
+    <string name="tamper_detected_count">⚠️ %d Security Breach(es) Detected</string>
+    <string name="root_detected_warning">⚠️ Root Access Detected</string>
+    <string name="security_dashboard_title">Security Dashboard</string>
+    <string name="security_dashboard_subtitle">Monitor &amp; Configure Protection</string>
+    <string name="hardware_access_controls">Hardware Access Controls</string>
+    <string name="security_actions">Security Actions</string>
+    
+    <!-- Content Descriptions -->
+    <string name="desc_dashboard">Dashboard icon</string>
+    <string name="desc_vault">Vault status</string>
+    <string name="desc_keys">Keys status</string>
+    <string name="desc_watchdog">Watchdog status</string>
+    <string name="desc_honeypot">Honeypot status</string>
+    <string name="desc_tamper">Tamper detection status</string>
+    <string name="desc_camera">Camera access control</string>
+    <string name="desc_microphone">Microphone access control</string>
+    <string name="desc_location">Location access control</string>
+    
+    <!-- Hardware Feature Labels -->
+    <string name="hardware_camera">Camera</string>
+    <string name="hardware_camera_desc">Block camera access</string>
+    <string name="hardware_microphone">Microphone</string>
+    <string name="hardware_mic_desc">Block microphone access</string>
+    <string name="hardware_location">Location</string>
+    <string name="hardware_location_desc">Block location access</string>
+    
+    <!-- Main Activity -->
+    <string name="app_subtitle">Hardware-Bound Security Fortress</string>
+    <string name="desc_shield">Sentinoid Shield</string>
+    <string name="desc_security_icon">Security status</string>
+    <string name="desc_secure_status">Secure status indicator</string>
+    <string name="desc_fpm">Feature Permission Manager</string>
+    <string name="desc_recovery">Recovery settings</string>
+    <string name="desc_bridge">USB Bridge connection</string>
+    <string name="desc_atmosphere">Atmosphere tier</string>
+    
+    <!-- Security Dashboard Buttons -->
+    <string name="btn_check_tamper">Check Tamper Status</string>
+    <string name="btn_open_fpm">Feature Permission Manager</string>
+    <string name="btn_test_honeypot">Test Honeypot System</string>
+    <string name="btn_purge_keys">Emergency Key Purge</string>
+    
+    <!-- Recovery -->
+    <string name="recovery_save_title">SAVE YOUR RECOVERY DATA</string>
+    <string name="recovery_saved_confirm">I Have Saved These</string>
+    <string name="recovery_copy_all">Copy to Clipboard</string>
+    <string name="recovery_copied">Recovery data copied!</string>
+    
+    <!-- Logs Dashboard -->
+    <string name="clear_logs_title">Clear Logs</string>
+    <string name="no_logs_match_search">No logs match "%s"</string>
+    <string name="no_logs_available">No logs available</string>
+    <string name="showing_logs_count">Showing %d of %d logs</string>
+    
+    <!-- Watchdog -->
+    <string name="watchdog_notification_title">Sentinoid Watchdog</string>
+    <string name="watchdog_notification_text">Security monitoring active</string>
+    <string name="watchdog_stop">Stop</string>
+    <string name="watchdog_channel_name">Sentinoid Watchdog</string>
+    <string name="watchdog_channel_description">Security monitoring service</string>
+    
+    <!-- FPM -->
+    <string name="fpm_enabled">FPM Service enabled</string>
+    <string name="fpm_disabled">FPM Service disabled</string>
 </resources>

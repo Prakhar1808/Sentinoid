@@ -18,6 +18,9 @@
     <color name="accent_blue_light">#FF80D8FF</color>
     <color name="accent_blue_glow">#3300B0FF</color>
 
+    <!-- Cyan Accent -->
+    <color name="accent_cyan">#FF00BCD4</color>
+
     <!-- Tertiary Accent - Purple/Indigo for Premium -->
     <color name="accent_purple">#FF7C4DFF</color>
     <color name="accent_purple_light">#FFB388FF</color>

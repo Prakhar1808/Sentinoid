@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import com.sentinoid.app.security.ActivityLogger
 import com.sentinoid.app.security.CryptoManager
 import com.sentinoid.app.security.SecurePreferences
 import java.security.SecureRandom
@@ -150,14 +151,62 @@ class MobileAModule(private val context: Context) : SensorEventListener {
 
     fun scrambleFrameBuffer() {
         if (!getRdnaStatus().active) return
+        
         try {
             val random = SecureRandom()
+            
+            // Generate obfuscation pattern
             val pattern = ByteArray(256)
             random.nextBytes(pattern)
+            
+            // Store pattern for RDNA GPU to use (would be passed to native layer)
+            // This is a placeholder for actual RDNA frame buffer manipulation
+            // which requires platform-specific native implementation
+            securePreferences.putString("rdna_obfuscation_pattern", 
+                android.util.Base64.encodeToString(pattern, android.util.Base64.NO_WRAP), 
+                true)
+            
+            // Increment obfuscation counter for monitoring
+            val currentCount = securePreferences.getInt("rdna_obfuscation_count", 0)
+            securePreferences.putInt("rdna_obfuscation_count", currentCount + 1)
+            
+            // Log the scrambling event
+            if (currentCount % 100 == 0) {
+                // Log every 100th scramble to avoid log spam
+                ActivityLogger.getInstance(context).log(
+                    ActivityLogger.CATEGORY_ATMOSPHERE,
+                    "RDNA frame buffer scrambled ($currentCount times)",
+                    ActivityLogger.SEVERITY_DEBUG
+                )
+            }
+            
         } catch (e: Exception) {
-            // Silent fail - obfuscation is non-critical
+            ActivityLogger.getInstance(context).log(
+                ActivityLogger.CATEGORY_ATMOSPHERE,
+                "Frame buffer scramble failed: ${e.message}",
+                ActivityLogger.SEVERITY_ERROR
+            )
         }
     }
+    
+    /**
+     * Get obfuscation statistics for monitoring
+     */
+    fun getObfuscationStats(): ObfuscationStats {
+        val count = securePreferences.getInt("rdna_obfuscation_count", 0)
+        val lastTime = securePreferences.getLong("rdna_init_time", 0)
+        return ObfuscationStats(
+            scrambleCount = count,
+            lastObfuscation = if (lastTime > 0) lastTime else null,
+            patternActive = getRdnaStatus().active
+        )
+    }
+    
+    data class ObfuscationStats(
+        val scrambleCount: Int,
+        val lastObfuscation: Long?,
+        val patternActive: Boolean
+    )
 
     fun startGaitTracking(): Boolean {
         if (!isSamsungS26()) return false

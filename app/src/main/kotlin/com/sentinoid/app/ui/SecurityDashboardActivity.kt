@@ -1,5 +1,6 @@
 package com.sentinoid.app.ui
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -19,6 +20,7 @@ import com.sentinoid.app.SentinoidApp
 import com.sentinoid.app.security.CryptoManager
 import com.sentinoid.app.security.HoneypotEngine
 import com.sentinoid.app.security.SecurePreferences
+import com.sentinoid.app.security.FeaturePermissionManager
 import com.sentinoid.app.service.FPMInterceptorService
 import com.sentinoid.app.service.WatchdogService
 import kotlinx.coroutines.launch
@@ -27,12 +29,14 @@ class SecurityDashboardActivity : AppCompatActivity() {
     private lateinit var cryptoManager: CryptoManager
     private lateinit var securePreferences: SecurePreferences
     private lateinit var honeypotEngine: HoneypotEngine
+    private lateinit var featurePermissionManager: FeaturePermissionManager
 
     private lateinit var tvVaultStatus: TextView
     private lateinit var tvKeyStatus: TextView
     private lateinit var tvWatchdogStatus: TextView
     private lateinit var tvHoneypotStatus: TextView
     private lateinit var tvTamperStatus: TextView
+    private lateinit var tvFPMStatus: TextView
 
     private lateinit var switchBlockCamera: SwitchMaterial
     private lateinit var switchBlockMic: SwitchMaterial
@@ -42,6 +46,12 @@ class SecurityDashboardActivity : AppCompatActivity() {
     private lateinit var btnTestHoneypot: MaterialButton
     private lateinit var btnCheckTamper: MaterialButton
     private lateinit var btnOpenFPM: MaterialButton
+    private lateinit var btnToggleFPM: MaterialButton
+
+    // Track if tamper alert is currently showing to prevent stacking
+    private var currentTamperDialog: AlertDialog? = null
+    private var lastTamperAlertTime: Long = 0
+    private val TAMPER_ALERT_COOLDOWN_MS = 3000 // 3 second cooldown between alerts
 
     private val tamperReceiver =
         object : BroadcastReceiver() {
@@ -52,7 +62,7 @@ class SecurityDashboardActivity : AppCompatActivity() {
                 when (intent.action) {
                     WatchdogService.ACTION_TAMPER_DETECTED -> {
                         val reason = intent.getStringExtra("reason") ?: "Unknown"
-                        showTamperAlert(reason)
+                        showTamperAlertWithCooldown(reason)
                     }
                 }
             }
@@ -66,6 +76,7 @@ class SecurityDashboardActivity : AppCompatActivity() {
         cryptoManager = app.cryptoManager
         securePreferences = app.securePreferences
         honeypotEngine = HoneypotEngine(this)
+        featurePermissionManager = FeaturePermissionManager(this)
 
         setupUI()
         registerReceivers()
@@ -83,10 +94,19 @@ class SecurityDashboardActivity : AppCompatActivity() {
         switchBlockMic = findViewById(R.id.switch_block_mic)
         switchBlockLocation = findViewById(R.id.switch_block_location)
 
+        tvFPMStatus = findViewById(R.id.tv_fpm_status)
+
         btnPurgeKeys = findViewById(R.id.btn_purge_keys)
         btnTestHoneypot = findViewById(R.id.btn_test_honeypot)
         btnCheckTamper = findViewById(R.id.btn_check_tamper)
         btnOpenFPM = findViewById(R.id.btn_open_fpm)
+        btnToggleFPM = findViewById(R.id.btn_toggle_fpm)
+
+        btnToggleFPM.setOnClickListener { toggleFPMService() }
+        btnToggleFPM.setOnLongClickListener {
+            showFPMStatus()
+            true
+        }
 
         // Load saved preferences
         switchBlockCamera.isChecked =
@@ -105,32 +125,25 @@ class SecurityDashboardActivity : AppCompatActivity() {
                 true,
             )
 
-        // Set listeners
+        updateFPMStatus()
+
+        // Set listeners with actual enforcement
         switchBlockCamera.setOnCheckedChangeListener { _, checked ->
             securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, checked)
-            Toast.makeText(
-                this,
-                "Camera blocking ${if (checked) "enabled" else "disabled"}",
-                Toast.LENGTH_SHORT,
-            ).show()
+            featurePermissionManager.setFeatureBlocked("camera", checked)
+            Toast.makeText(this, "Camera ${if (checked) "BLOCKED" else "unblocked"} - Hardware access ${if (checked) "disabled" else "enabled"}", Toast.LENGTH_SHORT).show()
         }
 
         switchBlockMic.setOnCheckedChangeListener { _, checked ->
             securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, checked)
-            Toast.makeText(
-                this,
-                "Microphone blocking ${if (checked) "enabled" else "disabled"}",
-                Toast.LENGTH_SHORT,
-            ).show()
+            featurePermissionManager.setFeatureBlocked("microphone", checked)
+            Toast.makeText(this, "Microphone ${if (checked) "BLOCKED" else "unblocked"} - Recording ${if (checked) "prevented" else "allowed"}", Toast.LENGTH_SHORT).show()
         }
 
         switchBlockLocation.setOnCheckedChangeListener { _, checked ->
             securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, checked)
-            Toast.makeText(
-                this,
-                "Location blocking ${if (checked) "enabled" else "disabled"}",
-                Toast.LENGTH_SHORT,
-            ).show()
+            featurePermissionManager.setFeatureBlocked("location", checked)
+            Toast.makeText(this, "Location ${if (checked) "BLOCKED" else "unblocked"} - GPS ${if (checked) "spoofed to 0,0" else "restored"}", Toast.LENGTH_SHORT).show()
         }
 
         btnPurgeKeys.setOnClickListener { showPurgeConfirmDialog() }
@@ -152,72 +165,84 @@ class SecurityDashboardActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(tamperReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
             registerReceiver(tamperReceiver, filter)
         }
     }
 
     private fun updateStatus() {
-        // Vault status
+        // Vault status with animation
         val vaultReady = cryptoManager.isVaultInitialized()
-        tvVaultStatus.text = if (vaultReady) "✓ Vault Ready" else "✗ Vault Not Ready"
-        tvVaultStatus.setTextColor(
-            getColor(
-                if (vaultReady) {
-                    android.R.color.holo_green_dark
-                } else {
-                    android.R.color.holo_red_dark
-                },
-            ),
-        )
+        tvVaultStatus.text = if (vaultReady) getString(R.string.vault_ready) else getString(R.string.vault_not_ready)
+        tvVaultStatus.setTextColor(getColor(if (vaultReady) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+        
+        // Pulse animation for vault status
+        if (vaultReady) {
+            tvVaultStatus.post {
+                tvVaultStatus.animate()
+                    .alpha(0.7f)
+                    .setDuration(1000)
+                    .withEndAction {
+                        tvVaultStatus.animate()
+                            .alpha(1f)
+                            .setDuration(1000)
+                            .start()
+                    }
+                    .start()
+            }
+        }
 
-        // Key status
+        // Key status with detailed state
         val keysValid = cryptoManager.isKeyValid()
-        tvKeyStatus.text = if (keysValid) "✓ Keys Valid" else "✗ Keys Invalid"
-        tvKeyStatus.setTextColor(
-            getColor(
-                if (keysValid) {
-                    android.R.color.holo_green_dark
-                } else {
-                    android.R.color.holo_red_dark
-                },
-            ),
-        )
+        val keyRotationNeeded = cryptoManager.isKeyRotationNeeded()
+        tvKeyStatus.text = when {
+            !keysValid -> getString(R.string.keys_invalid)
+            keyRotationNeeded -> getString(R.string.keys_rotation_needed)
+            else -> getString(R.string.keys_valid)
+        }
+        tvKeyStatus.setTextColor(getColor(
+            when {
+                !keysValid -> android.R.color.holo_red_dark
+                keyRotationNeeded -> android.R.color.holo_orange_dark
+                else -> android.R.color.holo_green_dark
+            }
+        ))
 
         // Watchdog status
         val watchdogActive = isWatchdogRunning()
-        tvWatchdogStatus.text = if (watchdogActive) "✓ Watchdog Active" else "✗ Watchdog Inactive"
-        tvWatchdogStatus.setTextColor(
-            getColor(
-                if (watchdogActive) {
-                    android.R.color.holo_green_dark
-                } else {
-                    android.R.color.holo_red_dark
-                },
-            ),
-        )
+        tvWatchdogStatus.text = if (watchdogActive) getString(R.string.watchdog_active) else getString(R.string.watchdog_inactive)
+        tvWatchdogStatus.setTextColor(getColor(if (watchdogActive) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
 
-        // Honeypot status
+        // Honeypot status with attack count
         val honeypotActive = honeypotEngine.isHoneypotInitialized()
-        tvHoneypotStatus.text = if (honeypotActive) "✓ Honeypot Active" else "✗ Honeypot Inactive"
-        tvHoneypotStatus.setTextColor(
-            getColor(
-                if (honeypotActive) {
-                    android.R.color.holo_green_dark
-                } else {
-                    android.R.color.holo_red_dark
-                },
-            ),
-        )
-
-        // Tamper status
         val stats = honeypotEngine.getHoneypotStats()
+        tvHoneypotStatus.text = when {
+            !honeypotActive -> getString(R.string.honeypot_inactive)
+            stats.accessAttempts > 0 -> getString(R.string.honeypot_attacks_detected, stats.accessAttempts)
+            else -> getString(R.string.honeypot_active)
+        }
+        tvHoneypotStatus.setTextColor(getColor(
+            when {
+                !honeypotActive -> android.R.color.holo_red_dark
+                stats.accessAttempts > 0 -> android.R.color.holo_orange_dark
+                else -> android.R.color.holo_green_dark
+            }
+        ))
+
+        // Tamper status with detailed messaging
         if (stats.accessAttempts > 0) {
-            tvTamperStatus.text = "⚠️ SECURITY BREACH DETECTED"
+            tvTamperStatus.text = getString(R.string.tamper_detected_count, stats.accessAttempts)
             tvTamperStatus.setTextColor(getColor(android.R.color.holo_red_dark))
         } else {
-            tvTamperStatus.text = "✓ No Tampering Detected"
-            tvTamperStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+            val rootDetected = checkRootDetection()
+            tvTamperStatus.text = if (rootDetected) getString(R.string.root_detected_warning) else getString(R.string.no_tampering)
+            tvTamperStatus.setTextColor(getColor(if (rootDetected) android.R.color.holo_orange_dark else android.R.color.holo_green_dark))
         }
+    }
+    
+    private fun checkRootDetection(): Boolean {
+        val rootPaths = listOf("/system/bin/su", "/sbin/su", "/magisk", "/system/xbin/su")
+        return rootPaths.any { java.io.File(it).exists() }
     }
 
     @Suppress("DEPRECATION")
@@ -232,14 +257,90 @@ class SecurityDashboardActivity : AppCompatActivity() {
         return false
     }
 
+    private fun showTamperAlertWithCooldown(reason: String) {
+        val currentTime = System.currentTimeMillis()
+        
+        // Check if we should show alert (cooldown period)
+        if (currentTime - lastTamperAlertTime < TAMPER_ALERT_COOLDOWN_MS) {
+            return // Skip this alert, too soon
+        }
+        
+        // Dismiss existing dialog if showing
+        currentTamperDialog?.dismiss()
+        
+        lastTamperAlertTime = currentTime
+        
+        currentTamperDialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.tamper_alert_title))
+            .setMessage(getString(R.string.tamper_alert_message, reason))
+            .setPositiveButton(getString(R.string.tamper_alert_button)) { _, _ ->
+                updateStatus()
+            }
+            .setCancelable(false)
+            .create()
+            
+        currentTamperDialog?.show()
+    }
+
+    private fun updateFPMStatus() {
+        val isRunning = isFPMServiceRunning()
+        tvFPMStatus.text = if (isRunning) "FPM: ACTIVE" else "FPM: INACTIVE"
+        tvFPMStatus.setTextColor(getColor(if (isRunning) android.R.color.holo_green_dark else android.R.color.holo_red_dark))
+        btnToggleFPM.text = if (isRunning) "STOP FPM" else "START FPM"
+    }
+
+    private fun isFPMServiceRunning(): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        val runningServices = manager.getRunningServices(Integer.MAX_VALUE) ?: return false
+        for (service in runningServices) {
+            if (FPMInterceptorService::class.java.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun toggleFPMService() {
+        if (isFPMServiceRunning()) {
+            stopService(Intent(this, FPMInterceptorService::class.java))
+            Toast.makeText(this, "FPM Service stopped", Toast.LENGTH_SHORT).show()
+        } else {
+            startService(Intent(this, FPMInterceptorService::class.java))
+            Toast.makeText(this, "FPM Service started - Enable in Accessibility Settings", Toast.LENGTH_LONG).show()
+            // Open accessibility settings to enable the service
+            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+        }
+        updateFPMStatus()
+    }
+
+    private fun updateFPMServiceState() {
+        // Send broadcast to update FPM service state if running
+        val intent = Intent("com.sentinoid.app.FPM_SETTINGS_CHANGED")
+        sendBroadcast(intent)
+        updateFPMStatus()
+    }
+
     private fun showPurgeConfirmDialog() {
+        // Get list of keys that will be deleted
+        val keysToDelete = buildString {
+            appendLine("The following will be permanently destroyed:")
+            appendLine()
+            appendLine("• Vault encryption keys")
+            appendLine("• Biometric authentication keys")
+            appendLine("• Recovery shards (all 3)")
+            appendLine("• Master key encrypted backup")
+            appendLine("• Honeypot decoy files")
+            appendLine("• All secure preferences")
+            appendLine()
+            appendLine("⚠️ WARNING: You will need your recovery mnemonic to restore access!")
+        }
+        
         AlertDialog.Builder(this)
-            .setTitle("⚠️ PURGE ALL KEYS")
-            .setMessage(
-                "This will permanently destroy all cryptographic keys and recovery data. " +
-                    "You will need your recovery shards to restore access. This action cannot be undone.",
-            )
-            .setPositiveButton("PURGE") { _, _ ->
+            .setTitle("🗑️ EMERGENCY KEY PURGE")
+            .setMessage(keysToDelete)
+            .setPositiveButton("PURGE ALL") { _, _ ->
                 performPurge()
             }
             .setNegativeButton("Cancel", null)
@@ -300,13 +401,13 @@ class SecurityDashboardActivity : AppCompatActivity() {
             }
 
         AlertDialog.Builder(this)
-            .setTitle("Honeypot Test Results")
+            .setTitle(getString(R.string.honeypot_test_title))
             .setMessage(message)
-            .setPositiveButton("Regenerate Decoys") { _, _ ->
+            .setPositiveButton(getString(R.string.honeypot_button_regenerate_decoys)) { _, _ ->
                 honeypotEngine.regenerateDecoys()
-                Toast.makeText(this, "Decoys regenerated", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_decoys_regenerated), Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Close", null)
+            .setNegativeButton(getString(R.string.dialog_close), null)
             .show()
     }
 
@@ -342,24 +443,42 @@ class SecurityDashboardActivity : AppCompatActivity() {
         checks.add("$keyIcon Crypto Keys: $keyStatus")
 
         AlertDialog.Builder(this)
-            .setTitle("Tamper Detection Check")
+            .setTitle(getString(R.string.tamper_check_title))
             .setMessage(checks.joinToString("\n"))
+            .setPositiveButton(getString(R.string.dialog_ok), null)
+            .show()
+    }
+
+    private fun requestDeviceAdmin() {
+        if (featurePermissionManager.isDeviceAdminActive()) {
+            AlertDialog.Builder(this)
+                .setTitle("Device Admin Active")
+                .setMessage("Device Administrator is already enabled. Camera blocking is ready to use.")
+                .setPositiveButton("OK", null)
+                .show()
+        } else {
+            featurePermissionManager.requestDeviceAdmin(this)
+        }
+    }
+
+    private fun showFPMStatus() {
+        val status = featurePermissionManager.getBlockingStatus()
+        AlertDialog.Builder(this)
+            .setTitle("FPM Blocking Status")
+            .setMessage(status.getStatusMessage())
             .setPositiveButton("OK", null)
             .show()
     }
 
-    private fun showTamperAlert(reason: String) {
-        AlertDialog.Builder(this)
-            .setTitle("🚨 TAMPERING DETECTED")
-            .setMessage(
-                "Security violation detected: $reason\n\n" +
-                    "All keys have been purged for your protection.",
-            )
-            .setPositiveButton("Understood") { _, _ ->
-                updateStatus()
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == FeaturePermissionManager.REQUEST_CODE_DEVICE_ADMIN) {
+            if (featurePermissionManager.isDeviceAdminActive()) {
+                Toast.makeText(this, "Device Admin enabled! Camera blocking is now active.", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Device Admin not enabled. Camera blocking requires this permission.", Toast.LENGTH_LONG).show()
             }
-            .setCancelable(false)
-            .show()
+        }
     }
 
     override fun onResume() {

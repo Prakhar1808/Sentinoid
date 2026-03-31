@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="4dp"
-    android:layout_marginVertical="6dp"
+    android:layout_marginBottom="8dp"
     app:cardBackgroundColor="@color/card_background"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
@@ -19,19 +18,17 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Severity Indicator with Icon -->
+        <!-- Honeypot Access Icon -->
         <FrameLayout
-            android:id="@+id/fl_severity_container"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_marginEnd="16dp"
-            android:background="@drawable/bg_status_secure">
+            android:background="@drawable/bg_status_warning">
 
             <ImageView
-                android:id="@+id/iv_severity_icon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_check_circle"
+                android:src="@drawable/ic_honeypot"
                 android:layout_gravity="center"
                 app:tint="@color/background_dark" />
 
@@ -44,24 +41,26 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tv_event_type"
+                android:id="@+id/tv_log_file"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="File Name"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
-                tools:text="Camera Blocked" />
+                android:maxLines="1"
+                android:ellipsize="middle"
+                tools:text="sensitive_data.pdf" />
 
             <TextView
-                android:id="@+id/tv_event_package"
+                android:id="@+id/tv_log_operation"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="Operation"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="4dp"
-                android:maxLines="1"
-                android:ellipsize="end"
-                tools:text="com.suspicious.app" />
+                tools:text="READ_ACCESS" />
 
         </LinearLayout>
 
@@ -72,26 +71,24 @@
             android:gravity="end">
 
             <com.google.android.material.chip.Chip
-                android:id="@+id/chip_event_time"
+                android:id="@+id/tv_log_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="2 min ago"
+                android:text="12:00:00"
                 android:textSize="11sp"
                 app:chipMinHeight="28dp"
                 app:chipBackgroundColor="@color/background_elevated"
                 app:chipStrokeWidth="0dp"
-                tools:text="2 min ago" />
+                tools:text="12:00:00" />
 
             <TextView
-                android:id="@+id/tv_event_severity"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="INFO"
-                android:textSize="11sp"
+                android:text="HONEYPOT"
+                android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="@color/accent_green"
-                android:layout_marginTop="4dp"
-                tools:text="INFO" />
+                android:textColor="@color/warning_yellow"
+                android:layout_marginTop="4dp" />
 
         </LinearLayout>
 

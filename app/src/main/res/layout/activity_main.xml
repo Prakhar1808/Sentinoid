@@ -38,24 +38,24 @@
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:src="@drawable/ic_shield"
-                        android:contentDescription="Sentinoid Shield"
+                        android:contentDescription="@string/desc_shield"
                         android:layout_marginBottom="12dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sentinoid"
+                        android:text="@string/app_name"
                         android:textSize="32sp"
                         android:textStyle="bold"
-                        android:textColor="#FF0A0A0F"
+                        android:textColor="#FFFFFF"
                         android:letterSpacing="0.05" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Hardware-Bound Security Fortress"
+                        android:text="@string/app_subtitle"
                         android:textSize="14sp"
-                        android:textColor="#CC0A0A0F"
+                        android:textColor="#CCFFFFFF"
                         android:layout_marginTop="4dp" />
 
                 </LinearLayout>
@@ -92,7 +92,7 @@
                         android:layout_height="32dp"
                         android:src="@drawable/ic_shield"
                         android:layout_gravity="center"
-                        android:contentDescription="Security Icon" />
+                        android:contentDescription="@string/desc_security_icon" />
                 </FrameLayout>
 
                 <LinearLayout
@@ -104,7 +104,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Security Status"
+                        android:text="@string/card_status_label"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary" />
@@ -112,7 +112,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="System secure • All protections active"
+                        android:text="@string/card_status_subtitle"
                         android:textSize="14sp"
                         android:textColor="@color/accent_green"
                         android:layout_marginTop="4dp" />
@@ -122,7 +122,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_check_circle"
-                    android:contentDescription="Secure Status" />
+                    android:contentDescription="@string/desc_secure_status" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -141,6 +141,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_columnWeight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="4dp"
@@ -158,12 +161,12 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@drawable/ic_dashboard"
-                        android:contentDescription="Dashboard" />
+                        android:contentDescription="@string/desc_dashboard" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Dashboard"
+                        android:text="@string/card_dashboard_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -172,7 +175,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Security Overview"
+                        android:text="@string/card_dashboard_subtitle"
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -185,6 +188,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_columnWeight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="4dp"
@@ -202,12 +208,12 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@drawable/ic_security"
-                        android:contentDescription="FPM" />
+                        android:contentDescription="@string/desc_fpm" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="FPM"
+                        android:text="@string/card_fpm_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -216,7 +222,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Feature Manager"
+                        android:text="@string/card_fpm_subtitle"
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -229,6 +235,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_columnWeight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="4dp"
@@ -246,12 +255,12 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@drawable/ic_recovery"
-                        android:contentDescription="Recovery" />
+                        android:contentDescription="@string/desc_recovery" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Recovery"
+                        android:text="@string/card_recovery_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -260,7 +269,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="BIP39 + Shamir"
+                        android:text="@string/card_recovery_subtitle"
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -273,6 +282,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_columnWeight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="4dp"
@@ -290,12 +302,12 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@drawable/ic_usb"
-                        android:contentDescription="Bridge" />
+                        android:contentDescription="@string/desc_bridge" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Bridge"
+                        android:text="@string/card_bridge_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -304,7 +316,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="USB Connection"
+                        android:text="@string/card_bridge_subtitle"
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -320,6 +332,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:cardBackgroundColor="@color/card_background"
             app:cardCornerRadius="16dp"
             app:cardElevation="4dp"
@@ -344,7 +359,7 @@
                         android:layout_height="28dp"
                         android:src="@drawable/ic_honeypot"
                         android:layout_gravity="center"
-                        android:contentDescription="Honeypot" />
+                        android:contentDescription="@string/desc_honeypot" />
                 </FrameLayout>
 
                 <LinearLayout
@@ -356,7 +371,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Honeypot Trap"
+                        android:text="@string/card_honeypot_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary" />
@@ -364,7 +379,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Decoy files and intrusion detection"
+                        android:text="@string/card_honeypot_subtitle"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -379,6 +394,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:cardBackgroundColor="@color/card_background"
             app:cardCornerRadius="16dp"
             app:cardElevation="4dp"
@@ -403,7 +421,7 @@
                         android:layout_height="28dp"
                         android:src="@drawable/ic_settings"
                         android:layout_gravity="center"
-                        android:contentDescription="Atmosphere" />
+                        android:contentDescription="@string/desc_atmosphere" />
                 </FrameLayout>
 
                 <LinearLayout
@@ -415,7 +433,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Atmosphere"
+                        android:text="@string/card_atmosphere_label"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary" />
@@ -423,7 +441,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Hardware tier and premium features"
+                        android:text="@string/card_atmosphere_subtitle"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="4dp" />
@@ -432,7 +450,7 @@
                 <com.google.android.material.chip.Chip
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="LITE"
+                    android:text="@string/atmosphere_chip_lite"
                     android:textSize="12sp"
                     app:chipBackgroundColor="@color/accent_blue_glow"
                     app:chipStrokeWidth="0dp" />

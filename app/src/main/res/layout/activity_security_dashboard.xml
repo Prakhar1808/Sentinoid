@@ -38,7 +38,7 @@
                         android:layout_width="56dp"
                         android:layout_height="56dp"
                         android:src="@drawable/ic_dashboard"
-                        android:contentDescription="Dashboard"
+                        android:contentDescription="@string/desc_dashboard"
                         android:layout_marginEnd="16dp" />
 
                     <LinearLayout
@@ -50,17 +50,17 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Security Dashboard"
+                            android:text="@string/security_dashboard_title"
                             android:textSize="24sp"
                             android:textStyle="bold"
-                            android:textColor="#FF0A0A0F" />
+                            android:textColor="#FFFFFF" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Monitor &amp; Configure Protection"
+                            android:text="@string/security_dashboard_subtitle"
                             android:textSize="14sp"
-                            android:textColor="#CC0A0A0F" />
+                            android:textColor="#CCFFFFFF" />
                     </LinearLayout>
 
                 </LinearLayout>
@@ -98,13 +98,13 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:src="@drawable/ic_shield"
-                        android:contentDescription="Vault" />
+                        android:contentDescription="@string/desc_vault" />
 
                     <TextView
                         android:id="@+id/tv_vault_status"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Vault Ready"
+                        android:text="@string/vault_ready"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="@color/accent_green"
@@ -135,13 +135,13 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:src="@drawable/ic_security"
-                        android:contentDescription="Keys" />
+                        android:contentDescription="@string/desc_keys" />
 
                     <TextView
                         android:id="@+id/tv_key_status"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Keys Valid"
+                        android:text="@string/keys_valid"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="@color/accent_green"
@@ -172,7 +172,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:src="@drawable/ic_alert"
-                        android:contentDescription="Watchdog" />
+                        android:contentDescription="@string/desc_watchdog" />
 
                     <TextView
                         android:id="@+id/tv_watchdog_status"
@@ -209,7 +209,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:src="@drawable/ic_honeypot"
-                        android:contentDescription="Honeypot" />
+                        android:contentDescription="@string/desc_honeypot" />
 
                     <TextView
                         android:id="@+id/tv_honeypot_status"
@@ -255,7 +255,7 @@
                         android:layout_height="24dp"
                         android:src="@drawable/ic_check_circle"
                         android:layout_gravity="center"
-                        android:contentDescription="Tamper" />
+                        android:contentDescription="@string/desc_tamper" />
                 </FrameLayout>
 
                 <TextView
@@ -263,7 +263,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="No Tampering Detected"
+                    android:text="@string/no_tampering"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/accent_green" />
@@ -291,7 +291,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Hardware Access Controls"
+                    android:text="@string/hardware_access_controls"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"
@@ -316,7 +316,7 @@
                             android:layout_height="24dp"
                             android:src="@drawable/ic_camera"
                             android:layout_gravity="center"
-                            android:contentDescription="Camera" />
+                            android:contentDescription="@string/desc_camera" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -328,7 +328,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Camera"
+                            android:text="@string/hardware_camera"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -336,7 +336,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Block camera access"
+                            android:text="@string/hardware_camera_desc"
                             android:textSize="13sp"
                             android:textColor="@color/text_secondary" />
                     </LinearLayout>
@@ -374,7 +374,7 @@
                             android:layout_height="24dp"
                             android:src="@drawable/ic_mic"
                             android:layout_gravity="center"
-                            android:contentDescription="Microphone" />
+                            android:contentDescription="@string/desc_microphone" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -386,7 +386,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Microphone"
+                            android:text="@string/hardware_microphone"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -394,7 +394,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Block microphone access"
+                            android:text="@string/hardware_mic_desc"
                             android:textSize="13sp"
                             android:textColor="@color/text_secondary" />
                     </LinearLayout>
@@ -432,7 +432,7 @@
                             android:layout_height="24dp"
                             android:src="@drawable/ic_location"
                             android:layout_gravity="center"
-                            android:contentDescription="Location" />
+                            android:contentDescription="@string/desc_location" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -444,7 +444,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Location"
+                            android:text="@string/hardware_location"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -452,7 +452,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Block location access"
+                            android:text="@string/hardware_location_desc"
                             android:textSize="13sp"
                             android:textColor="@color/text_secondary" />
                     </LinearLayout>
@@ -464,6 +464,74 @@
                         android:checked="true" />
 
                 </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- FPM Service Status Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/card_background"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/border">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_gradient_primary"
+                    android:layout_marginEnd="16dp">
+
+                    <ImageView
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@drawable/ic_security"
+                        android:layout_gravity="center"
+                        android:contentDescription="@string/desc_fpm" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Feature Permission Manager"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/tv_fpm_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="FPM: INACTIVE"
+                        android:textSize="14sp"
+                        android:textColor="@color/error_red"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_toggle_fpm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="START"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    app:cornerRadius="8dp" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -488,7 +556,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Security Actions"
+                    android:text="@string/security_actions"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"
@@ -498,7 +566,7 @@
                     android:id="@+id/btn_check_tamper"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Check Tamper Status"
+                    android:text="@string/btn_check_tamper"
                     android:textAllCaps="false"
                     android:layout_marginBottom="12dp"
                     style="@style/Widget.Material3.Button.OutlinedButton" />
@@ -507,7 +575,7 @@
                     android:id="@+id/btn_open_fpm"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Feature Permission Manager"
+                    android:text="@string/btn_open_fpm"
                     android:textAllCaps="false"
                     android:layout_marginBottom="12dp"
                     style="@style/Widget.Material3.Button.OutlinedButton" />
@@ -516,7 +584,7 @@
                     android:id="@+id/btn_test_honeypot"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Test Honeypot System"
+                    android:text="@string/btn_test_honeypot"
                     android:textAllCaps="false"
                     android:layout_marginBottom="12dp"
                     style="@style/Widget.Material3.Button.OutlinedButton" />
@@ -525,7 +593,7 @@
                     android:id="@+id/btn_purge_keys"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Emergency Key Purge"
+                    android:text="@string/btn_purge_keys"
                     android:textAllCaps="false"
                     android:textColor="@color/error_red"
                     style="@style/Widget.Material3.Button.OutlinedButton"

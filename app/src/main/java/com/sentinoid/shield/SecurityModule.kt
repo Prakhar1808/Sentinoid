@@ -1,5 +1,6 @@
 package com.sentinoid.shield
 
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import javax.crypto.KeyGenerator
@@ -14,11 +15,16 @@ fun createSelfDestructingKey() {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .setUserAuthenticationRequired(true) // 🔒 Force Biometric
-            .setInvalidatedByBiometricEnrollment(true) // 🧨 WIPES KEY if a new finger is added
-            .setIsStrongBoxBacked(true) // 🏛️ Use Dedicated Security Chip if available
-            .build()
-
-    keyGenerator.init(builder)
+    
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        builder.setUserAuthenticationRequired(true) // Force Biometric
+        builder.setInvalidatedByBiometricEnrollment(true) // WIPES KEY if a new finger is added
+    }
+    
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        builder.setIsStrongBoxBacked(true) // Use Dedicated Security Chip if available
+    }
+    
+    keyGenerator.init(builder.build())
     keyGenerator.generateKey()
 }

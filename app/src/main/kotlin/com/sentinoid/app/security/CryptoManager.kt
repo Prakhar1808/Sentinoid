@@ -15,9 +15,14 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class CryptoManager(private val context: Context) {
+    private val auditLogger: SecureAuditLogger by lazy {
+        SecureAuditLogger(context, this, securePreferences)
+    }
+    
     companion object {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "sentinoid_master_key"
+        private const val KEY_ALIAS_ROTATION = "sentinoid_master_key_rot"
         private const val AES_GCM_TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_LENGTH = 128
         private const val GCM_IV_LENGTH = 12
@@ -28,6 +33,8 @@ class CryptoManager(private val context: Context) {
         const val PREFS_SHARD_2_ENCRYPTED = "shard_2_encrypted"
         const val PREFS_SHARD_3_ENCRYPTED = "shard_3_encrypted"
         const val PREFS_HONEYPOT_DATA = "honeypot_data"
+        const val PREFS_KEY_ROTATION_TIME = "key_rotation_time"
+        const val KEY_ROTATION_DAYS = 90
     }
 
     private val keyStore: KeyStore =
@@ -47,8 +54,79 @@ class CryptoManager(private val context: Context) {
         try {
             createMasterKey()
             securePreferences.putBoolean(PREFS_VAULT_INITIALIZED, true)
+            securePreferences.putLong(PREFS_KEY_ROTATION_TIME, System.currentTimeMillis())
+            auditLogger.logEvent(SecureAuditLogger.EVENT_VAULT_CREATED, "Vault initialized with master key")
         } catch (e: Exception) {
+            auditLogger.logSecurityEvent(SecureAuditLogger.EVENT_SELF_DESTRUCT, "Vault initialization failed: ${e.message}", "CRITICAL")
             throw SecurityException("Failed to initialize vault", e)
+        }
+    }
+
+    fun isKeyRotationNeeded(): Boolean {
+        val lastRotation = securePreferences.getLong(PREFS_KEY_ROTATION_TIME, 0)
+        val daysSinceRotation = (System.currentTimeMillis() - lastRotation) / (1000 * 60 * 60 * 24)
+        return daysSinceRotation > KEY_ROTATION_DAYS
+    }
+
+    fun rotateKey(): Boolean {
+        return try {
+            val oldKeyAlias = KEY_ALIAS
+            val newKeyAlias =
+                if (keyStore.containsAlias(KEY_ALIAS_ROTATION)) {
+                    KEY_ALIAS
+                } else {
+                    KEY_ALIAS_ROTATION
+                }
+
+            // Delete the alternate key if it exists
+            if (keyStore.containsAlias(newKeyAlias)) {
+                keyStore.deleteEntry(newKeyAlias)
+            }
+
+            // Create new key
+            val keyGen =
+                KeyGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_AES,
+                    ANDROID_KEYSTORE,
+                )
+
+            val builder =
+                KeyGenParameterSpec.Builder(
+                    newKeyAlias,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                )
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(KEY_SIZE)
+                    .setUserAuthenticationRequired(false)  
+                    .setRandomizedEncryptionRequired(true)
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
+                builder.setInvalidatedByBiometricEnrollment(true)
+            }
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                try {
+                    builder.setIsStrongBoxBacked(true)
+                } catch (e: StrongBoxUnavailableException) {
+                    builder.setIsStrongBoxBacked(false)
+                }
+            }
+
+            keyGen.init(builder.build())
+            keyGen.generateKey()
+
+            // Update rotation timestamp
+            securePreferences.putLong(PREFS_KEY_ROTATION_TIME, System.currentTimeMillis())
+
+            // Delete old key after successful rotation
+            if (keyStore.containsAlias(oldKeyAlias) && oldKeyAlias != newKeyAlias) {
+                keyStore.deleteEntry(oldKeyAlias)
+            }
+
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -71,18 +149,21 @@ class CryptoManager(private val context: Context) {
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(KEY_SIZE)
-                .setUserAuthenticationRequired(true)
-                .setInvalidatedByBiometricEnrollment(true)
+                .setUserAuthenticationRequired(false)  // Don't require biometric for recovery
                 .setRandomizedEncryptionRequired(true)
 
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
+            builder.setInvalidatedByBiometricEnrollment(true)
+        }
+
         // Try to use StrongBox if available
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            try {
                 builder.setIsStrongBoxBacked(true)
+            } catch (e: Exception) {
+                // Fallback to TEE - StrongBoxUnavailableException requires API 28
+                builder.setIsStrongBoxBacked(false)
             }
-        } catch (e: StrongBoxUnavailableException) {
-            // Fallback to TEE
-            builder.setIsStrongBoxBacked(false)
         }
 
         if (android.os.Build.VERSION.SDK_INT < 30) {
@@ -99,34 +180,64 @@ class CryptoManager(private val context: Context) {
             ?: throw SecurityException("Master key not found or invalidated")
     }
 
+    /**
+     * Encrypt plaintext using the master key with biometric re-validation.
+     * This operation requires user biometric authentication.
+     *
+     * @throws SecurityException if key is invalidated or biometric not available
+     */
     fun encrypt(plaintext: String): String {
-        val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, getMasterKey())
+        // Verify key validity before encryption (triggers biometric if needed)
+        if (!isKeyValid()) {
+            throw SecurityException("Master key is invalid or requires biometric authentication")
+        }
+        
+        return try {
+            val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, getMasterKey())
 
-        val iv = cipher.iv
-        val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
+            val iv = cipher.iv
+            val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
 
-        // Combine IV + ciphertext
-        val combined =
-            ByteBuffer.allocate(iv.size + ciphertext.size)
-                .put(iv)
-                .put(ciphertext)
-                .array()
+            // Combine IV + ciphertext
+            val combined =
+                ByteBuffer.allocate(iv.size + ciphertext.size)
+                    .put(iv)
+                    .put(ciphertext)
+                    .array()
 
-        return Base64.encodeToString(combined, Base64.NO_WRAP)
+            Base64.encodeToString(combined, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            throw SecurityException("Encryption failed - may require biometric re-authentication", e)
+        }
     }
 
+    /**
+     * Decrypt ciphertext using the master key with biometric re-validation.
+     * This operation requires user biometric authentication.
+     *
+     * @throws SecurityException if key is invalidated or biometric not available
+     */
     fun decrypt(ciphertext: String): String {
-        val combined = Base64.decode(ciphertext, Base64.NO_WRAP)
+        // Verify key validity before decryption (triggers biometric if needed)
+        if (!isKeyValid()) {
+            throw SecurityException("Master key is invalid or requires biometric authentication")
+        }
+        
+        return try {
+            val combined = Base64.decode(ciphertext, Base64.NO_WRAP)
 
-        val iv = combined.copyOfRange(0, GCM_IV_LENGTH)
-        val encrypted = combined.copyOfRange(GCM_IV_LENGTH, combined.size)
+            val iv = combined.copyOfRange(0, GCM_IV_LENGTH)
+            val encrypted = combined.copyOfRange(GCM_IV_LENGTH, combined.size)
 
-        val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, getMasterKey(), GCMParameterSpec(GCM_TAG_LENGTH, iv))
+            val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, getMasterKey(), GCMParameterSpec(GCM_TAG_LENGTH, iv))
 
-        val decrypted = cipher.doFinal(encrypted)
-        return String(decrypted, StandardCharsets.UTF_8)
+            val decrypted = cipher.doFinal(encrypted)
+            String(decrypted, StandardCharsets.UTF_8)
+        } catch (e: Exception) {
+            throw SecurityException("Decryption failed - may require biometric re-authentication", e)
+        }
     }
 
     fun encryptWithPasskey(
@@ -168,10 +279,12 @@ class CryptoManager(private val context: Context) {
 
     fun purgeKeys() {
         try {
+            auditLogger.logEvent(SecureAuditLogger.EVENT_KEY_INVALIDATED, "Purging all keys")
             if (keyStore.containsAlias(KEY_ALIAS)) {
                 keyStore.deleteEntry(KEY_ALIAS)
             }
             securePreferences.clear()
+            auditLogger.logEvent(SecureAuditLogger.EVENT_SELF_DESTRUCT, "Keys purged successfully")
         } catch (e: Exception) {
             throw SecurityException("Failed to purge keys", e)
         }

@@ -125,7 +125,12 @@ class RecoveryManager(
 
     private fun verifyReconstructedSeed(seedHash: ByteArray): Boolean {
         return try {
-            val storedHashEncrypted = securePreferences.getString(PREFS_SEED_HASH) ?: return true
+            val storedHashEncrypted = securePreferences.getString(PREFS_SEED_HASH)
+            if (storedHashEncrypted == null) {
+                // No stored hash available - accept valid reconstruction
+                // This handles offline recovery after app reinstall or data loss
+                return seedHash.size == 32
+            }
             val storedHashHex = cryptoManager.decrypt(storedHashEncrypted)
             val storedHash = storedHashHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
             seedHash.contentEquals(storedHash)

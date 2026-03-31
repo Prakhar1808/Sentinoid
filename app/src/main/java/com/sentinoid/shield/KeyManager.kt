@@ -10,6 +10,8 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import javax.crypto.KeyGenerator
 
+import com.sentinoid.app.security.BIP39Provider
+
 object KeyManager {
     private const val DB_KEY_ALIAS = "SentinoidDbKey"
     private const val HANDSHAKE_KEY_ALIAS = "SentinoidHandshakeKey"
@@ -43,7 +45,9 @@ object KeyManager {
     }
 
     fun generateMnemonic(): String {
-        return generateRecoveryPhrase().joinToString(" ")
+        val provider = BIP39Provider()
+        val mnemonicSeed = provider.generateMnemonic(24)
+        return mnemonicSeed.words.joinToString(" ")
     }
 
     fun saveMnemonicSecure(
@@ -93,8 +97,10 @@ object KeyManager {
                     setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
                     setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS)
                     setKeySize(2048)
-                    setUserAuthenticationRequired(true)
-                    setInvalidatedByBiometricEnrollment(true)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        setUserAuthenticationRequired(true)
+                        setInvalidatedByBiometricEnrollment(true)
+                    }
                     build()
                 }
             kpg.initialize(parameterSpec)

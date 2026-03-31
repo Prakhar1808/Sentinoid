@@ -2,15 +2,16 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
-    namespace = "com.sentinoid.shield"
+    namespace = "com.sentinoid.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sentinoid.shield"
-        minSdk = 21
+        applicationId = "com.sentinoid.app"
+        minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -23,11 +24,17 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
     compileOptions {
@@ -60,7 +67,7 @@ android {
             version = "3.22.1"
         }
     }
-    ndkVersion = "21.1.10909125"
+    ndkVersion = "27.0.12077973"
 }
 
 dependencies {
@@ -79,8 +86,36 @@ dependencies {
     implementation(libs.tensorflow.lite.support)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.bip39)
     implementation(libs.material)
+    
+    // Room Database
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    implementation(libs.sqlcipher)
+    kapt("androidx.room:room-compiler:2.6.1")
+    
+    // QR Code
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.android.embedded)
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    
+    // Navigation
+    implementation(libs.navigation.fragment)
+    implementation(libs.navigation.ui)
+    
+    // Lifecycle
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.livedata)
+    
+    // USB Serial
+    implementation(libs.usb.serial)
+    
+    // Security - BouncyCastle
+    implementation(libs.bouncycastle.bcprov)
+    implementation(libs.bouncycastle.bcpkix)
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

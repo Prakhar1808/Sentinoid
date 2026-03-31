@@ -2,336 +2,287 @@ package com.sentinoid.app.security
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.Date
-import kotlin.random.Random
 
 class HoneypotEngine(private val context: Context) {
     companion object {
-        private const val HONEYPOT_DIR = "honeypot_data"
+        private const val TAG = "HoneypotEngine"
         private const val ACCESS_LOG_MAX = 100
-
-        // Decoy content types
-        private val DECOY_PASSWORDS: List<String> =
-            listOf(
-                "Password123!",
-                "SecurePass2024!",
-                "Admin@12345",
-                "Qwerty!2345",
-                "LetMeIn#2024",
-            )
-
-        private val DECOY_API_KEYS: List<String> =
-            listOf(
-                "sk_live_51HyG...2xYz9",
-                "AKIAIOSFODNN7EXAMPLE",
-                "ghp_xxxxxxxxxxxxxxxxxxxx",
-                "bearer_token_abc123xyz",
-            )
-
-        private val DECOY_CREDIT_CARDS: List<String> =
-            listOf(
-                "4532015112830366",
-                "5425233430109903",
-                "374245455400126",
-            )
-
-        private val DECOY_CONTACTS: List<String> =
-            listOf(
-                "John Doe,john@example.com,+1-555-0123",
-                "Jane Smith,jane@example.com,+1-555-0456",
-                "Bob Johnson,bob@example.com,+1-555-0789",
-            )
+        private const val PREF_INITIALIZED = "honeypot_initialized_v3"
+        private const val PREFS_HONEYPOT_DIR = "honeypot_v3"
     }
 
     data class AccessEvent(
         val timestamp: Long,
         val filePath: String,
-        val operation: String,
-        val processInfo: String?,
+        val operation: String
     )
 
     data class HoneypotStats(
         val decoyFilesCreated: Int,
         val accessAttempts: Int,
         val uniqueAttackers: Int,
-        val lastAccessTime: Long?,
+        val lastAccessTime: Long?
     )
 
     private val activityLogger by lazy { ActivityLogger.getInstance(context) }
     private val securePreferences = SecurePreferences(context)
-    private val accessLog: MutableList<AccessEvent> = mutableListOf<AccessEvent>()
+    private val accessLog: MutableList<AccessEvent> = mutableListOf()
+    private val handler = Handler(Looper.getMainLooper())
+    
+    // Use internal app storage - no permissions needed
     private val honeypotDir: File by lazy {
-        val dir = File(context.filesDir, HONEYPOT_DIR)
-        if (!dir.exists()) {
-            dir.mkdirs()
+        File(context.filesDir, PREFS_HONEYPOT_DIR).apply {
+            if (!exists()) mkdirs()
         }
-        dir
     }
 
     fun initializeHoneypot() {
-        if (!isHoneypotInitialized()) {
-            createDecoyFiles()
-            securePreferences.putBoolean("honeypot_initialized", true)
-            activityLogger.logHoneypot("Honeypot initialized with ${honeypotDir.listFiles()?.size ?: 0} decoy files", ActivityLogger.SEVERITY_INFO)
-        } else {
-            activityLogger.logHoneypot("Honeypot already initialized", ActivityLogger.SEVERITY_DEBUG)
+        try {
+            if (!isHoneypotInitialized()) {
+                Log.i(TAG, "Initializing honeypot in: ${honeypotDir.absolutePath}")
+                createDecoyFiles()
+                securePreferences.putBoolean(PREF_INITIALIZED, true)
+                activityLogger.logHoneypot("Honeypot initialized with ${getDecoyCount()} files", ActivityLogger.SEVERITY_INFO)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize: ${e.message}")
         }
     }
 
-    fun createDecoyFiles() {
-        createDecoyFile("passwords.txt", generateFakePasswords())
-        createDecoyFile("api_keys.json", generateFakeApiKeys())
-        createDecoyFile("wallet_backup.dat", generateFakeWalletData())
-        createDecoyFile("contacts.csv", DECOY_CONTACTS.joinToString("\n"))
-        createDecoyFile("config.ini", generateFakeConfig())
-        createDecoyFile("db_dump.sql", generateFakeDatabase())
-        createDecoyFile("id_rsa", generateFakeSSHKey())
-        createDecoyFile("2fa_backup_codes.txt", generateFake2FABackup())
-        createDecoyFile("banking_info.pdf", generateFakeBankingData())
-        createDecoyFile("session_tokens.log", generateFakeTokens())
+    private fun getDecoyCount(): Int {
+        return try {
+            honeypotDir.listFiles()?.count { it.isFile } ?: 0
+        } catch (e: Exception) { 0 }
     }
 
-    private fun createDecoyFile(
-        filename: String,
-        content: String,
-    ) {
-        val file = File(honeypotDir, filename)
+    fun createDecoyFiles() {
+        val files = listOf(
+            "passwords.txt" to generateFakePasswords(),
+            "api_keys.txt" to generateFakeApiKeys(),
+            "wallet.dat" to generateFakeWallet(),
+            "contacts.csv" to generateFakeContacts(),
+            "config.ini" to generateFakeConfig(),
+            "database.sql" to generateFakeDatabase(),
+            "ssh_key.pem" to generateFakeSSHKey(),
+            "2fa_codes.txt" to generateFake2FA(),
+            "banking.txt" to generateFakeBanking(),
+            "tokens.log" to generateFakeTokens()
+        )
+
+        files.forEach { (name, content) ->
+            createFile(name, content)
+        }
+    }
+
+    private fun createFile(name: String, content: String) {
         try {
-            val fos = FileOutputStream(file)
-            fos.write(content.toByteArray())
-            fos.close()
-
-            // Track creation time
-            val creationTime = System.currentTimeMillis()
-            file.setLastModified(creationTime)
-            securePreferences.putLong("honeypot_created_$filename", creationTime)
-
-            // Set file as readable
-            file.setReadable(true, false)
+            val file = File(honeypotDir, name)
+            FileOutputStream(file).use { it.write(content.toByteArray()) }
+            
+            val timestamp = System.currentTimeMillis()
+            securePreferences.putLong("honeypot_${file.name}", timestamp)
+            
+            // Broadcast creation
+            broadcastDecoyCreated(file.absolutePath, timestamp)
+            Log.i(TAG, "Created: $name")
         } catch (e: Exception) {
-            // Silent fail
+            Log.e(TAG, "Failed to create $name: ${e.message}")
+        }
+    }
+
+    private fun broadcastDecoyCreated(path: String, timestamp: Long) {
+        handler.post {
+            try {
+                val intent = Intent("com.sentinoid.app.HONEYPOT_DECOY_CREATED").apply {
+                    putExtra("timestamp", timestamp)
+                    putExtra("file", path)
+                    putExtra("operation", "DECOY_CREATED")
+                    setPackage(context.packageName)
+                }
+                context.sendBroadcast(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Broadcast failed: ${e.message}")
+            }
         }
     }
 
     private fun generateFakePasswords(): String {
-        val lines = mutableListOf<String>("# Passwords - DO NOT SHARE")
-        for (i in DECOY_PASSWORDS.indices) {
-            val pass = DECOY_PASSWORDS[i]
-            val username = listOf("admin", "root", "user", "john", "administrator").random()
-            lines.add("${i + 1}. $username:$pass")
-        }
-        return lines.joinToString("\n")
+        return """# Password Vault
+admin:Password123!
+root:SecurePass2024@
+user:Qwerty789#
+john:LetMeIn2024$"""
     }
 
     private fun generateFakeApiKeys(): String {
-        return """
-            {
-                "stripe": "${DECOY_API_KEYS[0]}",
-                "aws": "${DECOY_API_KEYS[1]}",
-                "github": "${DECOY_API_KEYS[2]}",
-                "api_bearer": "${DECOY_API_KEYS[3]}"
-            }
-            """.trimIndent()
+        val key1 = randomString(32)
+        val key2 = randomString(16).uppercase()
+        return """STRIPE_API_KEY=sk_live_$key1
+AWS_ACCESS_KEY=AKIA$key2
+GITHUB_TOKEN=ghp_${randomString(36)}"""
     }
 
-    private fun generateFakeWalletData(): String {
-        val random = SecureRandom()
-        val entropy = ByteArray(32)
-        random.nextBytes(entropy)
-        return "BIP39_ENTROPY:" + entropy.joinToString("") { "%02x".format(it) }
+    private fun generateFakeWallet(): String {
+        val entropy = ByteArray(32).apply { SecureRandom().nextBytes(this) }
+        return "BIP39_SEED: ${entropy.joinToString("") { "%02x".format(it) }}"
+    }
+
+    private fun generateFakeContacts(): String {
+        return """Alex Smith,alex.smith@gmail.com,+1-555-1234
+Jordan Johnson,jordan.j@yahoo.com,+1-555-5678
+Casey Williams,casey.w@outlook.com,+1-555-9012"""
     }
 
     private fun generateFakeConfig(): String {
-        return """
-            [database]
-            host=prod-db.internal.com
-            username=db_admin
-            password=${DECOY_PASSWORDS[0]}
+        return """[Database]
+Host=prod-db.internal.com
+User=db_admin
+Pass=SecurePass123!
 
-            [api]
-            secret_key=${DECOY_API_KEYS[3]}
-            endpoint=https://api.internal.com/v1
-            """.trimIndent()
+[API]
+SecretKey=${randomString(32)}
+Endpoint=https://api.internal.com"""
     }
 
     private fun generateFakeDatabase(): String {
-        return """
-            -- Users table
-            INSERT INTO users VALUES (1, 'admin', '${DECOY_PASSWORDS[0]}', 'admin@company.com');
-            INSERT INTO users VALUES (2, 'john_doe', '${DECOY_PASSWORDS[1]}', 'john@company.com');
+        return """-- Users
+INSERT INTO users VALUES (1,'admin','Secret123!','admin@company.com');
+INSERT INTO users VALUES (2,'john','Pass456!','john@company.com');
 
-            -- Credit cards
-            INSERT INTO payments VALUES (1, '${DECOY_CREDIT_CARDS[0]}', 'John Doe', '12/25', '123');
-            INSERT INTO payments VALUES (2, '${DECOY_CREDIT_CARDS[1]}', 'Jane Smith', '11/26', '456');
-            """.trimIndent()
+-- Cards
+INSERT INTO cards VALUES (1,'4532${randomDigits(12)}','12/25','123');"""
     }
 
     private fun generateFakeSSHKey(): String {
-        return """
-            -----BEGIN OPENSSH PRIVATE KEY-----
-            ${generateRandomBase64(600)}
-            -----END OPENSSH PRIVATE KEY-----
-            """.trimIndent()
+        return """-----BEGIN OPENSSH PRIVATE KEY-----
+${randomBase64(400)}
+-----END OPENSSH PRIVATE KEY-----"""
     }
 
-    private fun generateFake2FABackup(): String {
-        val codes = mutableListOf<String>()
-        for (i in 0 until 10) {
-            codes.add(Random.nextInt(10000000, 99999999).toString())
-        }
-        return """
-            # 2FA Backup Codes - Keep Safe!
-            ${codes.joinToString("\n")}
-            # Generated: 2024-01-15
-            """.trimIndent()
+    private fun generateFake2FA(): String {
+        return (1..10).joinToString("\n") { "CODE${it}: ${10000000 + SecureRandom().nextInt(90000000)}" }
     }
 
-    private fun generateFakeBankingData(): String {
-        return """
-            Account: ****4532
-            Routing: 021000021
-            Balance: $12,450.00
+    private fun generateFakeBanking(): String {
+        return """Account: ****4532
+Routing: 021000021
+Balance: $12,450.00
 
-            Recent Transactions:
-            - Wire Transfer: -$5,000.00
-            - Deposit: +$2,500.00
-            """.trimIndent()
+Transaction:
+- Wire: -$5,000.00
+- Deposit: +$2,500.00"""
     }
 
     private fun generateFakeTokens(): String {
-        val tokens = mutableListOf<String>()
-        for (i in 0 until 5) {
-            val timestamp = System.currentTimeMillis() - (i.toLong() * 86400000L)
-            val token = generateRandomBase64(50)
-            tokens.add("[${Date(timestamp)}] Session: $token")
-        }
-        return tokens.joinToString("\n")
-    }
-
-    private fun generateRandomBase64(length: Int): String {
-        val bytes = ByteArray(length)
-        SecureRandom().nextBytes(bytes)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Base64.getEncoder().encodeToString(bytes)
-        } else {
-            android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        return (1..5).joinToString("\n") { i ->
+            val time = System.currentTimeMillis() - (i * 86400000L)
+            "[${Date(time)}] TOKEN: ${randomBase64(40)}"
         }
     }
 
-    fun checkForHoneypotAccess(): List<AccessEvent> {
-        val suspiciousAccesses = mutableListOf<AccessEvent>()
+    private fun randomString(len: Int): String {
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        return (1..len).map { chars[SecureRandom().nextInt(chars.length)] }.joinToString("")
+    }
 
-        val files = honeypotDir.listFiles() ?: return suspiciousAccesses
-        for (file in files) {
-            val lastModified = file.lastModified()
-            val created = securePreferences.getLong("honeypot_created_${file.name}", 0)
+    private fun randomDigits(len: Int): String {
+        return (1..len).map { SecureRandom().nextInt(10) }.joinToString("")
+    }
 
-            // Allow 1 second buffer for file system timestamp precision
-            if (lastModified > created + 1000 && created > 0) {
-                val event =
-                    AccessEvent(
-                        timestamp = lastModified,
-                        filePath = file.absolutePath,
-                        operation = "READ/MODIFY",
-                        processInfo = null,
-                    )
+    private fun randomBase64(len: Int): String {
+        val bytes = ByteArray(len).apply { SecureRandom().nextBytes(this) }
+        return Base64.getEncoder().encodeToString(bytes)
+    }
 
-                // Only log if not already logged (avoid duplicates)
-                var alreadyLogged = false
-                for (loggedEvent in accessLog) {
-                    if (loggedEvent.timestamp == event.timestamp && loggedEvent.filePath == event.filePath) {
-                        alreadyLogged = true
-                        break
+    fun checkForAccess(): List<AccessEvent> {
+        // Scan for file access by checking modification times
+        val events = mutableListOf<AccessEvent>()
+        try {
+            honeypotDir.listFiles()?.forEach { file ->
+                val created = securePreferences.getLong("honeypot_${file.name}", 0)
+                val modified = file.lastModified()
+                
+                if (created > 0 && modified > created + 1000) {
+                    val event = AccessEvent(modified, file.absolutePath, "ACCESSED")
+                    synchronized(accessLog) {
+                        if (!accessLog.any { it.filePath == event.filePath && (modified - it.timestamp) < 5000 }) {
+                            accessLog.add(event)
+                            if (accessLog.size > ACCESS_LOG_MAX) accessLog.removeAt(0)
+                            
+                            // Broadcast
+                            handler.post {
+                                try {
+                                    val intent = Intent("com.sentinoid.app.HONEYPOT_ACCESS").apply {
+                                        putExtra("timestamp", modified)
+                                        putExtra("file", file.absolutePath)
+                                        putExtra("operation", "ACCESSED")
+                                        setPackage(context.packageName)
+                                    }
+                                    context.sendBroadcast(intent)
+                                } catch (e: Exception) {}
+                            }
+                            
+                            activityLogger.logHoneypot("File accessed: ${file.name}", ActivityLogger.SEVERITY_WARNING)
+                        }
                     }
-                }
-
-                if (!alreadyLogged) {
-                    suspiciousAccesses.add(event)
-                    logHoneypotAccess(event)
+                    events.add(event)
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Check access error: ${e.message}")
         }
-
-        return suspiciousAccesses
-    }
-
-    private fun logHoneypotAccess(event: AccessEvent) {
-        accessLog.add(event)
-        if (accessLog.size > ACCESS_LOG_MAX) {
-            accessLog.removeAt(0)
-        }
-
-        triggerSilentAlarm(event)
-        
-        activityLogger.logHoneypot(
-            "Unauthorized access detected: ${File(event.filePath).name}",
-            ActivityLogger.SEVERITY_CRITICAL,
-            mapOf(
-                "filePath" to event.filePath,
-                "operation" to event.operation,
-                "timestamp" to event.timestamp.toString()
-            )
-        )
-
-        val key = "honeypot_access_${event.timestamp}"
-        securePreferences.putString(key, "${event.filePath}|${event.operation}")
-    }
-
-    private fun triggerSilentAlarm(event: AccessEvent) {
-        val intent = Intent("com.sentinoid.app.HONEYPOT_ACCESS")
-        intent.putExtra("timestamp", event.timestamp)
-        intent.putExtra("file", event.filePath)
-        intent.setPackage(context.packageName)
-        context.sendBroadcast(intent)
+        return events
     }
 
     fun getHoneypotStats(): HoneypotStats {
-        val files = honeypotDir.listFiles()?.size ?: 0
-        val accesses = accessLog.size
-
-        val uniquePathsSet = mutableSetOf<String>()
-        var lastTime: Long? = null
-        for (event in accessLog) {
-            uniquePathsSet.add(event.filePath)
-            if (lastTime == null || event.timestamp > lastTime) {
-                lastTime = event.timestamp
-            }
+        val files = getDecoyCount()
+        synchronized(accessLog) {
+            val unique = accessLog.map { it.filePath }.toSet()
+            val lastTime = accessLog.maxOfOrNull { it.timestamp }
+            return HoneypotStats(files, accessLog.size, unique.size, lastTime)
         }
-
-        return HoneypotStats(
-            decoyFilesCreated = files,
-            accessAttempts = accesses,
-            uniqueAttackers = uniquePathsSet.size,
-            lastAccessTime = lastTime,
-        )
     }
 
-    fun isHoneypotInitialized(): Boolean {
-        return securePreferences.getBoolean("honeypot_initialized", false)
-    }
+    fun getAccessLog(): List<AccessEvent> = synchronized(accessLog) { accessLog.toList() }
+    fun isHoneypotInitialized(): Boolean = securePreferences.getBoolean(PREF_INITIALIZED, false)
 
     fun purgeHoneypot() {
-        val fileCount = honeypotDir.listFiles()?.size ?: 0
-        honeypotDir.deleteRecursively()
-        honeypotDir.mkdirs()
-        accessLog.clear()
-        securePreferences.putBoolean("honeypot_initialized", false)
-        activityLogger.logHoneypot("Honeypot purged - $fileCount decoy files removed", ActivityLogger.SEVERITY_WARNING)
+        try {
+            honeypotDir.listFiles()?.forEach { it.delete() }
+            synchronized(accessLog) { accessLog.clear() }
+            securePreferences.putBoolean(PREF_INITIALIZED, false)
+            activityLogger.logHoneypot("Honeypot purged", ActivityLogger.SEVERITY_WARNING)
+        } catch (e: Exception) {
+            Log.e(TAG, "Purge error: ${e.message}")
+        }
     }
 
-    fun getAccessLog(): List<AccessEvent> {
-        return accessLog.toList()
-    }
+    fun getHoneypotDirectory(): String = honeypotDir.absolutePath
 
-    fun regenerateDecoys() {
-        purgeHoneypot()
-        createDecoyFiles()
-        securePreferences.putBoolean("honeypot_initialized", true)
-        activityLogger.logHoneypot("Decoy files regenerated", ActivityLogger.SEVERITY_INFO, mapOf("count" to "10"))
+    fun regenerateDecoys(): List<String> {
+        val filePaths = mutableListOf<String>()
+        try {
+            purgeHoneypot()
+            createDecoyFiles()
+            securePreferences.putBoolean(PREF_INITIALIZED, true)
+            // Collect all created file paths
+            honeypotDir.listFiles()?.forEach { file ->
+                if (file.isFile) {
+                    filePaths.add(file.absolutePath)
+                }
+            }
+            activityLogger.logHoneypot("Decoys regenerated: ${filePaths.size} files in ${honeypotDir.absolutePath}", ActivityLogger.SEVERITY_INFO)
+        } catch (e: Exception) {
+            Log.e(TAG, "Regenerate error: ${e.message}")
+        }
+        return filePaths
     }
 }

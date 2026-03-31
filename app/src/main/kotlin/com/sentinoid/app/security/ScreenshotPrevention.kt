@@ -19,7 +19,7 @@ class ScreenshotPrevention(private val context: Context) {
     private val securePreferences = SecurePreferences(context)
 
     fun isEnabled(): Boolean {
-        return securePreferences.getBoolean(PREFS_ENABLED, true)
+        return securePreferences.getBoolean(PREFS_ENABLED, false)
     }
 
     fun setEnabled(enabled: Boolean) {

@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -19,18 +20,20 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.sentinoid.app.R
 import com.sentinoid.app.SentinoidApp
+import com.sentinoid.app.security.ActivityLogger
 import com.sentinoid.app.security.RecoveryManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.security.KeyStoreException
+import android.util.Log
 import java.util.concurrent.Executor
 
 class RecoveryActivity : AppCompatActivity() {
     private lateinit var recoveryManager: RecoveryManager
     private lateinit var executor: Executor
-    private lateinit var biometricPrompt: BiometricPrompt
-    private lateinit var promptInfo: BiometricPrompt.PromptInfo
+    private var biometricPrompt: BiometricPrompt? = null
+    private var promptInfo: BiometricPrompt.PromptInfo? = null
     private lateinit var tvStatus: TextView
     private lateinit var recyclerShards: RecyclerView
     private lateinit var btnSetup: MaterialButton
@@ -41,6 +44,7 @@ class RecoveryActivity : AppCompatActivity() {
     private var currentShards: List<String> = emptyList()
     private var pendingShardsForRecovery: List<String>? = null
     private var pendingWordsForRecovery: List<String>? = null
+    private var isBiometricAvailable = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,8 +60,21 @@ class RecoveryActivity : AppCompatActivity() {
     }
 
     private fun setupBiometricAuth() {
-        biometricPrompt =
-            BiometricPrompt(
+        // Check if biometric is available
+        val biometricManager = BiometricManager.from(this)
+        isBiometricAvailable = when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> {
+                Log.d("Recovery", "Biometric authentication available")
+                true
+            }
+            else -> {
+                Log.d("Recovery", "Biometric authentication not available")
+                false
+            }
+        }
+        
+        if (isBiometricAvailable) {
+            biometricPrompt = BiometricPrompt(
                 this,
                 executor,
                 object : BiometricPrompt.AuthenticationCallback() {
@@ -90,24 +107,28 @@ class RecoveryActivity : AppCompatActivity() {
                         errString: CharSequence,
                     ) {
                         super.onAuthenticationError(errorCode, errString)
-                        Toast.makeText(
-                            this@RecoveryActivity,
-                            "Authentication error: $errString",
-                            Toast.LENGTH_LONG,
-                        ).show()
+                        // Don't show error for user cancellation
+                        if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && 
+                            errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                            Toast.makeText(
+                                this@RecoveryActivity,
+                                "Authentication error: $errString",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
                         pendingShardsForRecovery = null
                         pendingWordsForRecovery = null
                     }
                 },
             )
 
-        promptInfo =
-            BiometricPrompt.PromptInfo.Builder()
+            promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Sentinoid Recovery")
                 .setSubtitle("Authenticate to access recovery functions")
-                .setNegativeButtonText("Cancel")
+                .setNegativeButtonText("Use Without Biometric")
                 .setConfirmationRequired(true)
                 .build()
+        }
     }
 
     private fun authenticateAndExecute(operation: () -> Unit) {
@@ -119,7 +140,25 @@ class RecoveryActivity : AppCompatActivity() {
                 is KeyPermanentlyInvalidatedException,
                 is KeyStoreException,
                 -> {
-                    biometricPrompt.authenticate(promptInfo)
+                    // If biometric is available, prompt for it
+                    // Otherwise just proceed with the operation
+                    if (isBiometricAvailable && biometricPrompt != null && promptInfo != null) {
+                        biometricPrompt?.authenticate(promptInfo!!)
+                    } else {
+                        // No biometric available, retry operation directly
+                        Log.d("Recovery", "No biometric available, proceeding without authentication")
+                        try {
+                            operation()
+                        } catch (e2: Exception) {
+                            // If it fails again, show error but don't block
+                            Toast.makeText(
+                                this@RecoveryActivity,
+                                "Warning: Operating without biometric protection",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            Log.e("Recovery", "Operation failed without biometric: ${e2.message}")
+                        }
+                    }
                 }
                 else -> throw e
             }
@@ -147,10 +186,12 @@ class RecoveryActivity : AppCompatActivity() {
             tvStatus.text = getString(R.string.status_configured)
             tvStatus.setTextColor(getColor(android.R.color.holo_green_dark))
             btnSetup.text = getString(R.string.btn_resetup_recovery)
+            btnSetup.icon = ContextCompat.getDrawable(this, R.drawable.ic_refresh)
         } else {
             tvStatus.text = getString(R.string.status_not_configured)
             tvStatus.setTextColor(getColor(android.R.color.holo_red_dark))
             btnSetup.text = getString(R.string.btn_setup_recovery)
+            btnSetup.icon = ContextCompat.getDrawable(this, R.drawable.ic_shield)
         }
 
         loadShards()
@@ -224,24 +265,72 @@ class RecoveryActivity : AppCompatActivity() {
     ) {
         val message =
             buildString {
-                appendLine("=== MNEMONIC WORDS (24 words) ===")
-                words.chunked(4).forEach { chunk ->
-                    appendLine(chunk.joinToString(" "))
+                appendLine("╔════════════════════════════════════╗")
+                appendLine("║     WRITE DOWN THESE PHRASES       ║")
+                appendLine("║   Store in 3 separate locations    ║")
+                appendLine("╚════════════════════════════════════╝")
+                appendLine()
+                appendLine("【 MNEMONIC WORDS (24 words) 】")
+                appendLine("━".repeat(36))
+                words.chunked(6).forEachIndexed { index, chunk ->
+                    appendLine("${index * 6 + 1}-${index * 6 + chunk.size}: ${chunk.joinToString(" ")}")
                 }
                 appendLine()
-                appendLine("=== SHARDS (2 of 3 required) ===")
+                appendLine("【 SHARDS - 2 of 3 required 】")
+                appendLine("━".repeat(36))
                 shards.forEachIndexed { index, shard ->
-                    appendLine("Shard ${index + 1}: $shard")
                     appendLine()
+                    appendLine("Shard ${index + 1}:")
+                    appendLine("─".repeat(36))
+                    // Format shard in groups for readability
+                    val formatted = shard.chunked(4).joinToString(" ")
+                    appendLine(formatted)
                 }
+                appendLine()
+                appendLine("⚠️ IMPORTANT:")
+                appendLine("• Anyone with 2 shards can recover your vault")
+                appendLine("• Store each shard in a different secure location")
+                appendLine("• Do not store all shards on this device")
             }
 
         AlertDialog.Builder(this)
-            .setTitle("SAVE YOUR RECOVERY DATA")
+            .setTitle(getString(R.string.recovery_save_title))
             .setMessage(message)
-            .setPositiveButton("I Have Saved These") { _, _ -> }
+            .setPositiveButton(getString(R.string.recovery_saved_confirm)) { _, _ ->
+                // Mark as saved in logs
+                ActivityLogger.getInstance(this).logRecovery("Recovery setup completed", ActivityLogger.SEVERITY_INFO)
+            }
+            .setNeutralButton(getString(R.string.recovery_copy_all)) { _, _ ->
+                copyRecoveryDataToClipboard(words, shards)
+            }
             .setCancelable(false)
             .show()
+    }
+    
+    private fun copyRecoveryDataToClipboard(
+        words: List<String>,
+        shards: List<String>,
+    ) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        
+        val data = buildString {
+            appendLine("Sentinoid Recovery Data")
+            appendLine("Generated: ${java.util.Date()}")
+            appendLine()
+            appendLine("MNEMONIC:")
+            appendLine(words.joinToString(" "))
+            appendLine()
+            appendLine("SHARDS:")
+            shards.forEachIndexed { index, shard ->
+                appendLine("Shard ${index + 1}: $shard")
+            }
+        }
+        
+        val clip = android.content.ClipData.newPlainText("Recovery Data", data)
+        clipboard.setPrimaryClip(clip)
+        
+        Toast.makeText(this, getString(R.string.recovery_copied), Toast.LENGTH_SHORT).show()
+        ActivityLogger.getInstance(this).logRecovery("Recovery data copied to clipboard", ActivityLogger.SEVERITY_WARNING)
     }
 
     private fun showRecoverDialog() {

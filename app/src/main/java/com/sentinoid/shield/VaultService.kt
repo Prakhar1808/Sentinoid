@@ -51,17 +51,18 @@ class VaultService : Service() {
                     keyStore.getKey(keyAlias, null) as SecretKey
                 } else {
                     val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-                    val spec =
+                    val builder =
                         KeyGenParameterSpec.Builder(
                             keyAlias,
                             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                         )
                             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                            .setUserAuthenticationRequired(true)
-                            .setInvalidatedByBiometricEnrollment(true)
-                            .build()
-                    keyGen.init(spec)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        builder.setUserAuthenticationRequired(true)
+                        builder.setInvalidatedByBiometricEnrollment(true)
+                    }
+                    keyGen.init(builder.build())
                     keyGen.generateKey()
                 }
             lazySecretKey.set(key)
