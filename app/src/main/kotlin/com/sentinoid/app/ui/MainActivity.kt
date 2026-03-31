@@ -13,10 +13,15 @@ import com.sentinoid.app.R
 import com.sentinoid.app.SentinoidApp
 import com.sentinoid.app.atmosphere.AtmosphereManager
 import com.sentinoid.app.bridge.BridgeModeManager
+import com.sentinoid.app.security.ActivityLogger
+import com.sentinoid.app.security.AntiDebugDetection
 import com.sentinoid.app.security.HoneypotEngine
 import com.sentinoid.app.security.RecoveryManager
+import com.sentinoid.app.security.ScreenshotPrevention
 import com.sentinoid.app.service.WatchdogService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
 
@@ -29,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var honeypotEngine: HoneypotEngine
     private lateinit var bridgeManager: BridgeModeManager
     private lateinit var atmosphereManager: AtmosphereManager
+    private lateinit var screenshotPrevention: ScreenshotPrevention
+    private lateinit var antiDebugDetection: AntiDebugDetection
 
     private lateinit var cardStatus: MaterialCardView
     private lateinit var cardRecovery: MaterialCardView
@@ -47,6 +54,14 @@ class MainActivity : AppCompatActivity() {
         honeypotEngine = HoneypotEngine(this)
         bridgeManager = BridgeModeManager(this)
         atmosphereManager = AtmosphereManager(this)
+        screenshotPrevention = ScreenshotPrevention(this)
+        antiDebugDetection = AntiDebugDetection(this)
+        
+        // Apply screenshot prevention
+        screenshotPrevention.configureSecureActivity(this, strict = true)
+        
+        // Perform anti-debug check
+        performSecurityCheck()
 
         executor = ContextCompat.getMainExecutor(this)
 
@@ -64,12 +79,13 @@ class MainActivity : AppCompatActivity() {
                 object : BiometricPrompt.AuthenticationCallback() {
                     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                         super.onAuthenticationSucceeded(result)
-                        // Authentication successful, proceed
+                        onAuthSuccess?.invoke()
+                        onAuthSuccess = null
                     }
 
                     override fun onAuthenticationFailed() {
                         super.onAuthenticationFailed()
-                        finish()
+                        showAuthError(getString(R.string.auth_failed))
                     }
 
                     override fun onAuthenticationError(
@@ -77,18 +93,41 @@ class MainActivity : AppCompatActivity() {
                         errString: CharSequence,
                     ) {
                         super.onAuthenticationError(errorCode, errString)
-                        finish()
+                        when (errorCode) {
+                            BiometricPrompt.ERROR_LOCKOUT -> showAuthError(getString(R.string.auth_lockout))
+                            BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> showAuthError(getString(R.string.auth_lockout_permanent))
+                            BiometricPrompt.ERROR_NO_BIOMETRICS -> showBiometricSetupWarning()
+                            else -> showAuthError(errString.toString())
+                        }
                     }
                 },
             )
 
         promptInfo =
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Sentinoid Security")
-                .setSubtitle("Authenticate to access your security vault")
-                .setNegativeButtonText("Cancel")
+                .setTitle(getString(R.string.biometric_title))
+                .setSubtitle(getString(R.string.biometric_subtitle))
+                .setDescription(getString(R.string.biometric_description))
+                .setNegativeButtonText(getString(R.string.biometric_negative))
                 .setConfirmationRequired(true)
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                 .build()
+    }
+    
+    private var onAuthSuccess: (() -> Unit)? = null
+    
+    private fun showAuthError(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.auth_error_title))
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.dialog_retry)) { _, _ ->
+                biometricPrompt.authenticate(promptInfo)
+            }
+            .setNegativeButton(getString(R.string.dialog_exit)) { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun setupUI() {
@@ -126,6 +165,30 @@ class MainActivity : AppCompatActivity() {
         // Check if recovery is set up
         if (!recoveryManager.isRecoverySetup()) {
             showSetupRecoveryDialog()
+        }
+        
+        // Schedule periodic anti-debug checks
+        scheduleAntiDebugChecks()
+    }
+    
+    private fun performSecurityCheck() {
+        val status = antiDebugDetection.checkDebugging()
+        if (status.threatLevel >= AntiDebugDetection.ThreatLevel.HIGH) {
+            // Handle high threat - could lock down or alert
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_TAMPER,
+                "Debug/ tampering detected: ${status.detectedMethods}",
+                ActivityLogger.SEVERITY_CRITICAL
+            )
+        }
+    }
+    
+    private fun scheduleAntiDebugChecks() {
+        lifecycleScope.launch {
+            while (isActive) {
+                delay(30000) // Check every 30 seconds
+                performSecurityCheck()
+            }
         }
     }
 
@@ -196,9 +259,9 @@ class MainActivity : AppCompatActivity() {
             }
 
         AlertDialog.Builder(this)
-            .setTitle("Security Status")
+            .setTitle(getString(R.string.dialog_security_status_title))
             .setMessage(message)
-            .setPositiveButton("OK", null)
+            .setPositiveButton(getString(R.string.dialog_ok), null)
             .show()
     }
 
@@ -218,71 +281,51 @@ class MainActivity : AppCompatActivity() {
         val devices = bridgeManager.findCompatibleDevices()
         if (devices.isEmpty()) {
             AlertDialog.Builder(this)
-                .setTitle("No USB Device")
-                .setMessage("No compatible USB devices found. Connect an AMD ULTRA or MOBILE-A device.")
-                .setPositiveButton("OK", null)
+                .setTitle(getString(R.string.dialog_no_usb_device_title))
+                .setMessage(getString(R.string.bridge_no_devices))
+                .setPositiveButton(getString(R.string.dialog_ok), null)
                 .show()
             return
         }
 
-        val deviceNames = devices.map { it.productName ?: "Unknown Device" }.toTypedArray()
+        val deviceNames = devices.map { it.productName ?: getString(R.string.bridge_unknown_device) }.toTypedArray()
 
         AlertDialog.Builder(this)
-            .setTitle("Select Bridge Device")
+            .setTitle(getString(R.string.dialog_select_bridge_device_title))
             .setItems(deviceNames) { _, which ->
                 val device = devices[which]
                 if (bridgeManager.requestUsbPermission(device)) {
                     bridgeManager.connectToDevice(device)
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
             .show()
     }
 
     private fun showHoneypotStats() {
-        val stats = honeypotEngine.getHoneypotStats()
-        val message =
-            buildString {
-                appendLine("Honeypot Statistics")
-                appendLine()
-                appendLine("Decoy Files: ${stats.decoyFilesCreated}")
-                appendLine("Access Attempts: ${stats.accessAttempts}")
-                appendLine("Unique Attackers: ${stats.uniqueAttackers}")
-                stats.lastAccessTime?.let {
-                    appendLine("Last Access: ${java.util.Date(it)}")
-                } ?: appendLine("No unauthorized access detected")
-            }
-
-        AlertDialog.Builder(this)
-            .setTitle("Honeypot Status")
-            .setMessage(message)
-            .setPositiveButton("Regenerate Decoys") { _, _ ->
-                honeypotEngine.regenerateDecoys()
-            }
-            .setNegativeButton("Close", null)
-            .show()
+        startActivity(Intent(this, HoneypotStatusActivity::class.java))
     }
 
     private fun showSetupRecoveryDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Setup Recovery")
-            .setMessage("You haven't set up offline recovery yet. Would you like to configure BIP39 + Shamir backup?")
-            .setPositiveButton("Setup") { _, _ ->
+            .setTitle(getString(R.string.dialog_setup_recovery_title))
+            .setMessage(getString(R.string.recovery_setup_prompt))
+            .setPositiveButton(getString(R.string.recovery_button_setup)) { _, _ ->
                 navigateToRecovery()
             }
-            .setNegativeButton("Later") { _, _ -> }
+            .setNegativeButton(getString(R.string.recovery_button_later)) { _, _ -> }
             .setCancelable(false)
             .show()
     }
 
     private fun showBiometricSetupWarning() {
         AlertDialog.Builder(this)
-            .setTitle("Biometric Required")
-            .setMessage("Please set up biometric authentication in system settings for maximum security.")
-            .setPositiveButton("Open Settings") { _, _ ->
+            .setTitle(getString(R.string.biometric_required))
+            .setMessage(getString(R.string.biometric_not_enrolled))
+            .setPositiveButton(getString(R.string.biometric_open_settings)) { _, _ ->
                 startActivity(Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS))
             }
-            .setNegativeButton("Later", null)
+            .setNegativeButton(getString(R.string.dialog_later), null)
             .show()
     }
 
@@ -346,9 +389,9 @@ class MainActivity : AppCompatActivity() {
             }
 
         AlertDialog.Builder(this)
-            .setTitle("Atmosphere Details")
+            .setTitle(getString(R.string.dialog_atmosphere_details_title))
             .setMessage(message)
-            .setPositiveButton("OK", null)
+            .setPositiveButton(getString(R.string.dialog_ok), null)
             .show()
     }
 }
