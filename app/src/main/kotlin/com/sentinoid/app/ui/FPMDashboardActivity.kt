@@ -1,5 +1,6 @@
 package com.sentinoid.app.ui
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -27,9 +28,10 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.sentinoid.app.R
 import com.sentinoid.app.SentinoidApp
+import com.sentinoid.app.security.ActivityLogger
+import com.sentinoid.app.security.FeaturePermissionManager
 import com.sentinoid.app.security.SecurePreferences
 import com.sentinoid.app.service.FPMInterceptorService
-import com.sentinoid.shield.FeaturePermissionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -51,6 +53,10 @@ class FPMDashboardActivity : AppCompatActivity() {
     private lateinit var switchAutoBlockExploit: SwitchMaterial
     private lateinit var switchNotifications: SwitchMaterial
 
+    private lateinit var tvDeviceAdminStatus: TextView
+    private lateinit var btnEnableDeviceAdmin: MaterialButton
+    private lateinit var ivDeviceAdminStatus: android.widget.ImageView
+    private lateinit var tvDeviceAdminHelp: TextView
     private lateinit var btnEnableFPM: MaterialButton
     private lateinit var btnDisableFPM: MaterialButton
     private lateinit var btnClearEvents: MaterialButton
@@ -61,6 +67,13 @@ class FPMDashboardActivity : AppCompatActivity() {
 
     private var blockedRequestCount = 0
     private var lastAlertTime: Long = 0
+
+    // Notification rate limiting
+    private var lastNotificationTime: Long = 0
+    private var notificationCount: Int = 0
+    private val NOTIFICATION_RATE_LIMIT_MS = 5000L // 5 seconds between notifications
+    private val MAX_NOTIFICATIONS_BURST = 3 // Max 3 notifications in quick succession
+    private val NOTIFICATION_BURST_WINDOW_MS = 60000L // 1 minute window
 
     private val securityEventReceiver =
         object : BroadcastReceiver() {
@@ -102,6 +115,7 @@ class FPMDashboardActivity : AppCompatActivity() {
         initViews()
         setupRecyclerView()
         loadPreferences()
+        loadEventsFromStorage()
         setupListeners()
         createNotificationChannel()
         updateStatus()
@@ -131,6 +145,11 @@ class FPMDashboardActivity : AppCompatActivity() {
         switchAutoBlockOverlay = findViewById(R.id.switch_auto_block_overlay)
         switchAutoBlockExploit = findViewById(R.id.switch_auto_block_exploit)
         switchNotifications = findViewById(R.id.switch_notifications)
+
+        tvDeviceAdminStatus = findViewById(R.id.tv_device_admin_status)
+        btnEnableDeviceAdmin = findViewById(R.id.btn_enable_device_admin)
+        ivDeviceAdminStatus = findViewById(R.id.iv_device_admin_status)
+        tvDeviceAdminHelp = findViewById(R.id.tv_device_admin_help)
 
         btnEnableFPM = findViewById(R.id.btn_enable_fpm)
         btnDisableFPM = findViewById(R.id.btn_disable_fpm)
@@ -175,6 +194,7 @@ class FPMDashboardActivity : AppCompatActivity() {
         btnDisableFPM.setOnClickListener { disableFPMService() }
         btnClearEvents.setOnClickListener { clearEvents() }
         btnTestFPM.setOnClickListener { testFPMDetection() }
+        btnEnableDeviceAdmin.setOnClickListener { requestDeviceAdmin() }
     }
 
     private fun enableFPMService() {
@@ -184,15 +204,43 @@ class FPMDashboardActivity : AppCompatActivity() {
         }
 
         val intent = Intent(this, FPMInterceptorService::class.java)
-        startService(intent)
-        Toast.makeText(this, "FPM Service enabled", Toast.LENGTH_SHORT).show()
-        updateStatus()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        
+        // Show success with ripple animation
+        btnEnableFPM.isEnabled = false
+        btnDisableFPM.isEnabled = true
+        
+        Toast.makeText(this, getString(R.string.fpm_enabled), Toast.LENGTH_SHORT).show()
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "FPM Service enabled by user",
+            ActivityLogger.SEVERITY_INFO
+        )
+        
+        // Delayed UI update to show transition
+        lifecycleScope.launch {
+            delay(500)
+            updateStatus()
+        }
     }
 
     private fun disableFPMService() {
         val intent = Intent(this, FPMInterceptorService::class.java)
         stopService(intent)
-        Toast.makeText(this, "FPM Service disabled", Toast.LENGTH_SHORT).show()
+        
+        btnEnableFPM.isEnabled = true
+        btnDisableFPM.isEnabled = false
+        
+        Toast.makeText(this, getString(R.string.fpm_disabled), Toast.LENGTH_SHORT).show()
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "FPM Service disabled by user",
+            ActivityLogger.SEVERITY_WARNING
+        )
         updateStatus()
     }
 
@@ -214,40 +262,64 @@ class FPMDashboardActivity : AppCompatActivity() {
 
     private fun showAccessibilityPermissionDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Accessibility Permission Required")
-            .setMessage("FPM requires accessibility permission to intercept hardware feature requests. Please enable it in settings.")
-            .setPositiveButton("Open Settings") { _, _ ->
+            .setTitle(getString(R.string.dialog_accessibility_title))
+            .setMessage(getString(R.string.dialog_accessibility_message))
+            .setPositiveButton(getString(R.string.dialog_open_settings)) { _, _ ->
                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    intent.putExtra("android.provider.extra.APP_PACKAGE", packageName)
+                }
                 startActivity(intent)
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
+            .setCancelable(false)
             .show()
     }
 
     private fun updateStatus() {
         val isServiceActive = checkAccessibilityPermission()
-        tvServiceStatus.text = if (isServiceActive) "Active" else "Inactive"
+        tvServiceStatus.text = if (isServiceActive) getString(R.string.status_active) else getString(R.string.status_inactive)
         tvServiceStatus.setTextColor(
             ContextCompat.getColor(this, if (isServiceActive) R.color.accent_green else R.color.error_red),
         )
 
         tvBlockedCount.text = blockedRequestCount.toString()
+        
+        // Animate blocked count if increased
+        val lastBlocked = securePreferences.getInt("last_displayed_blocked", 0)
+        if (blockedRequestCount > lastBlocked) {
+            tvBlockedCount.animate()
+                .scaleX(1.3f)
+                .scaleY(1.3f)
+                .setDuration(200)
+                .withEndAction {
+                    tvBlockedCount.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(200)
+                        .start()
+                }
+                .start()
+            securePreferences.putInt("last_displayed_blocked", blockedRequestCount)
+        }
 
         if (lastAlertTime > 0) {
             val timeDiff = System.currentTimeMillis() - lastAlertTime
             val minutes = timeDiff / 60000
             tvLastAlert.text =
                 when {
-                    minutes < 1 -> "Just now"
-                    minutes < 60 -> "$minutes min ago"
-                    else -> "${minutes / 60} hr ago"
+                    minutes < 1 -> getString(R.string.alert_just_now)
+                    minutes < 60 -> getString(R.string.alert_minutes_ago, minutes.toInt())
+                    minutes < 1440 -> getString(R.string.alert_hours_ago, (minutes / 60).toInt())
+                    else -> getString(R.string.alert_days_ago, (minutes / 1440).toInt())
                 }
         } else {
-            tvLastAlert.text = "None"
+            tvLastAlert.text = getString(R.string.alert_none)
         }
 
         updateFeatureStatus()
         updateThreatLevel()
+        updateDeviceAdminStatus()
     }
 
     private fun updateFeatureStatus() {
@@ -314,58 +386,64 @@ class FPMDashboardActivity : AppCompatActivity() {
         feature: String,
         blocked: Boolean,
     ) {
-        when (feature) {
-            "camera" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, blocked)
-                if (blocked) {
-                    featurePermissionManager.mockFeature(feature, false, false)
-                } else {
-                    featurePermissionManager.unmockFeature(feature)
-                }
-            }
-            "microphone" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, blocked)
-                if (blocked) {
-                    featurePermissionManager.mockFeature(feature, false, false)
-                } else {
-                    featurePermissionManager.unmockFeature(feature)
-                }
-            }
-            "location" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, blocked)
-                if (blocked) {
-                    featurePermissionManager.mockFeature(feature, false, false)
-                } else {
-                    featurePermissionManager.unmockFeature(feature)
-                }
-            }
+        val (prefKey, sensorKey) = getFeatureConfig(feature)
+        
+        securePreferences.putBoolean(prefKey, blocked, true)
+        
+        if (blocked) {
+            featurePermissionManager.mockFeature(feature, false, false)
+            featurePermissionManager.jamSensor(sensorKey)
+        } else {
+            featurePermissionManager.unmockFeature(feature)
         }
+
         Toast.makeText(this, "$feature ${if (blocked) "blocked" else "unblocked"}", Toast.LENGTH_SHORT).show()
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "Feature $feature ${if (blocked) "blocked" else "unblocked"} by user",
+            ActivityLogger.SEVERITY_INFO
+        )
         updateFeatureStatus()
     }
 
+    /**
+     * Get preference key and sensor key for a feature
+     */
+    private fun getFeatureConfig(feature: String): Pair<String, String> {
+        return when (feature.lowercase()) {
+            "camera" -> Pair(FPMInterceptorService.PREFS_BLOCK_CAMERA, "camera")
+            "microphone" -> Pair(FPMInterceptorService.PREFS_BLOCK_MIC, "microphone")
+            "location" -> Pair(FPMInterceptorService.PREFS_BLOCK_LOCATION, "gps")
+            else -> Pair("block_$feature", feature)
+        }
+    }
+
     private fun updateThreatLevel() {
-        val threatCount = eventsList.count { it.severity == "HIGH" }
+        val threatCount = eventsList.count { it.severity == "HIGH" || it.severity == "CRITICAL" }
+        val mediumCount = eventsList.count { it.severity == "MEDIUM" }
+        val recentThreats = eventsList.count { 
+            it.severity == "HIGH" && (System.currentTimeMillis() - it.timestamp) < 300000 
+        }
+        
         val level =
             when {
-                threatCount > 5 -> "CRITICAL"
+                recentThreats > 0 || threatCount > 5 -> "CRITICAL"
                 threatCount > 2 -> "HIGH"
-                threatCount > 0 -> "ELEVATED"
-                else -> "NORMAL"
+                threatCount > 0 || mediumCount > 3 -> "ELEVATED"
+                eventsList.isEmpty() -> "NORMAL"
+                else -> "LOW"
             }
 
         tvThreatLevel.text = level
-        tvThreatLevel.setTextColor(
-            ContextCompat.getColor(
-                this,
-                when (level) {
-                    "CRITICAL" -> R.color.error_red
-                    "HIGH" -> R.color.warning_yellow
-                    "ELEVATED" -> R.color.warning_yellow
-                    else -> R.color.accent_green
-                },
-            ),
-        )
+        val colorRes =
+            when (level) {
+                "CRITICAL" -> R.color.error_red
+                "HIGH" -> R.color.warning_yellow
+                "ELEVATED" -> R.color.warning_yellow
+                "LOW" -> R.color.accent_green
+                else -> R.color.accent_green
+            }
+        tvThreatLevel.setTextColor(ContextCompat.getColor(this, colorRes))
     }
 
     private fun registerSecurityReceiver() {
@@ -378,7 +456,12 @@ class FPMDashboardActivity : AppCompatActivity() {
                 addAction(ACTION_OVERLAY_DETECTED)
                 addAction(ACTION_FEATURE_EXPLOITED)
             }
-        registerReceiver(securityEventReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(securityEventReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(securityEventReceiver, filter)
+        }
     }
 
     private fun handleSecurityEvent(
@@ -482,41 +565,118 @@ class FPMDashboardActivity : AppCompatActivity() {
     }
 
     private fun autoBlockAllFeatures() {
-        securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, true)
-        securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, true)
-        securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, true)
+        val features = listOf(
+            Triple("camera", FPMInterceptorService.PREFS_BLOCK_CAMERA, "camera"),
+            Triple("microphone", FPMInterceptorService.PREFS_BLOCK_MIC, "microphone"),
+            Triple("location", FPMInterceptorService.PREFS_BLOCK_LOCATION, "gps")
+        )
 
-        featurePermissionManager.mockFeature("camera", false, false)
-        featurePermissionManager.mockFeature("microphone", false, false)
-        featurePermissionManager.mockFeature("location", false, false)
-
-        featurePermissionManager.jamSensor("camera")
-        featurePermissionManager.jamSensor("microphone")
-        featurePermissionManager.jamSensor("gps")
+        features.forEach { (featureName, prefKey, sensorKey) ->
+            securePreferences.putBoolean(prefKey, true, true)
+            featurePermissionManager.mockFeature(featureName, false, false)
+            featurePermissionManager.jamSensor(sensorKey)
+        }
 
         Toast.makeText(this, "Auto-protection: All features blocked", Toast.LENGTH_LONG).show()
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "Auto-protection: All features blocked",
+            ActivityLogger.SEVERITY_WARNING
+        )
     }
 
     private fun autoBlockFeature(feature: String) {
-        when (feature.lowercase()) {
-            "camera" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_CAMERA, true)
-                featurePermissionManager.mockFeature("camera", false, false)
-                featurePermissionManager.jamSensor("camera")
-            }
-            "microphone" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_MIC, true)
-                featurePermissionManager.mockFeature("microphone", false, false)
-                featurePermissionManager.jamSensor("microphone")
-            }
-            "location" -> {
-                securePreferences.putBoolean(FPMInterceptorService.PREFS_BLOCK_LOCATION, true)
-                featurePermissionManager.mockFeature("location", false, false)
-                featurePermissionManager.jamSensor("gps")
-            }
-        }
+        val (prefKey, sensorKey) = getFeatureConfig(feature)
+        
+        securePreferences.putBoolean(prefKey, true, true)
+        featurePermissionManager.mockFeature(feature, false, false)
+        featurePermissionManager.jamSensor(sensorKey)
 
         Toast.makeText(this, "Auto-protection: $feature blocked", Toast.LENGTH_LONG).show()
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "Auto-protection: $feature blocked",
+            ActivityLogger.SEVERITY_WARNING
+        )
+    }
+
+    /**
+     * Saves events to storage with proper error handling and logging.
+     * Logs failures to ActivityLogger for debugging.
+     */
+    private fun saveEventsToStorage() {
+        try {
+            val eventsJson = org.json.JSONArray()
+            eventsList.take(50).forEach { event ->
+                val obj =
+                    org.json.JSONObject().apply {
+                        put("timestamp", event.timestamp)
+                        put("type", event.type)
+                        put("packageName", event.packageName)
+                        put("severity", event.severity)
+                    }
+                eventsJson.put(obj)
+            }
+            securePreferences.putString(PREFS_EVENTS_STORAGE, eventsJson.toString(), true)
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_FPM,
+                "Events persisted: ${eventsList.size} events",
+                ActivityLogger.SEVERITY_DEBUG
+            )
+        } catch (e: Exception) {
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_FPM,
+                "Failed to persist events: ${e.message}",
+                ActivityLogger.SEVERITY_ERROR
+            )
+        }
+    }
+
+    /**
+     * Loads events from storage with proper error handling.
+     * Logs corrupt data for debugging.
+     */
+    private fun loadEventsFromStorage() {
+        try {
+            val stored = securePreferences.getString(PREFS_EVENTS_STORAGE) ?: return
+            val jsonArray = org.json.JSONArray(stored)
+
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val event =
+                    FPMEvent(
+                        timestamp = obj.getLong("timestamp"),
+                        type = obj.getString("type"),
+                        packageName = obj.getString("packageName"),
+                        severity = obj.getString("severity"),
+                    )
+                eventsList.add(event)
+            }
+
+            while (eventsList.size > 50) {
+                eventsList.removeAt(eventsList.size - 1)
+            }
+
+            eventsAdapter.notifyDataSetChanged()
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_FPM,
+                "Events loaded: ${eventsList.size} events",
+                ActivityLogger.SEVERITY_DEBUG
+            )
+        } catch (e: org.json.JSONException) {
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_FPM,
+                "Corrupt event data cleared: ${e.message}",
+                ActivityLogger.SEVERITY_WARNING
+            )
+            securePreferences.remove(PREFS_EVENTS_STORAGE, true)
+        } catch (e: Exception) {
+            ActivityLogger.getInstance(this).log(
+                ActivityLogger.CATEGORY_FPM,
+                "Failed to load events: ${e.message}",
+                ActivityLogger.SEVERITY_ERROR
+            )
+        }
     }
 
     private fun addEvent(event: FPMEvent) {
@@ -524,16 +684,25 @@ class FPMDashboardActivity : AppCompatActivity() {
         if (eventsList.size > 100) {
             eventsList.removeAt(eventsList.size - 1)
         }
-        eventsAdapter.notifyDataSetChanged()
+        eventsAdapter.notifyItemInserted(0)
+        recyclerEvents.scrollToPosition(0)
+
+        // Persist periodically (not on every event to reduce I/O)
+        if (eventsList.size % 10 == 0) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                saveEventsToStorage()
+            }
+        }
     }
 
     private fun clearEvents() {
         eventsList.clear()
         eventsAdapter.notifyDataSetChanged()
         blockedRequestCount = 0
-        securePreferences.putInt(PREFS_BLOCKED_COUNT, 0)
         lastAlertTime = 0
+        securePreferences.putInt(PREFS_BLOCKED_COUNT, 0)
         securePreferences.putLong(PREFS_LAST_ALERT_TIME, 0)
+        securePreferences.remove(PREFS_EVENTS_STORAGE)
         updateStatus()
         Toast.makeText(this, "Event history cleared", Toast.LENGTH_SHORT).show()
     }
@@ -545,6 +714,7 @@ class FPMDashboardActivity : AppCompatActivity() {
             delay(1000)
             val testIntent =
                 Intent(ACTION_MALWARE_DETECTED).apply {
+                    setPackage(packageName) // Keep broadcast within app
                     putExtra("package", "com.test.malware")
                     putExtra("threat_type", "Test Detection")
                 }
@@ -570,10 +740,42 @@ class FPMDashboardActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Show threat notification with rate limiting to prevent notification spam.
+     * Implements burst detection - if too many notifications in short time,
+     * consolidates them into a summary notification.
+     */
     private fun showThreatNotification(
         title: String,
         content: String,
     ) {
+        // Check if notifications are enabled
+        if (!securePreferences.getBoolean(PREFS_FPM_NOTIFICATIONS, true)) {
+            return
+        }
+
+        val currentTime = System.currentTimeMillis()
+
+        // Rate limiting: check time since last notification
+        if (currentTime - lastNotificationTime < NOTIFICATION_RATE_LIMIT_MS) {
+            notificationCount++
+        } else {
+            // Reset counter if outside burst window
+            if (currentTime - lastNotificationTime > NOTIFICATION_BURST_WINDOW_MS) {
+                notificationCount = 0
+            }
+        }
+
+        // If over burst limit, send consolidated notification instead
+        if (notificationCount > MAX_NOTIFICATIONS_BURST) {
+            if (notificationCount == MAX_NOTIFICATIONS_BURST + 1) {
+                // Only send one consolidated notification
+                showConsolidatedNotification()
+            }
+            lastNotificationTime = currentTime
+            return
+        }
+
         val intent =
             Intent(this, FPMDashboardActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -594,10 +796,61 @@ class FPMDashboardActivity : AppCompatActivity() {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
+                .setGroup(NOTIFICATION_GROUP_KEY)
                 .build()
 
         val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.notify(NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt(), notification)
+        notificationManager.notify(
+            NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt(),
+            notification
+        )
+
+        lastNotificationTime = currentTime
+
+        // Log notification for debugging
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "Notification sent: $title",
+            ActivityLogger.SEVERITY_DEBUG
+        )
+    }
+
+    /**
+     * Show a consolidated notification when rate limit is exceeded
+     */
+    private fun showConsolidatedNotification() {
+        val intent =
+            Intent(this, FPMDashboardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("Multiple Security Threats Detected")
+                .setContentText("$notificationCount threats detected. Tap to view details.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setGroup(NOTIFICATION_GROUP_KEY)
+                .setGroupSummary(true)
+                .build()
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.notify(NOTIFICATION_ID_SUMMARY, notification)
+
+        ActivityLogger.getInstance(this).log(
+            ActivityLogger.CATEGORY_FPM,
+            "Consolidated notification sent for $notificationCount threats",
+            ActivityLogger.SEVERITY_WARNING
+        )
     }
 
     private fun startStatusMonitoring() {
@@ -623,7 +876,9 @@ class FPMDashboardActivity : AppCompatActivity() {
         class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvType: TextView = view.findViewById(R.id.tv_event_type)
             val tvPackage: TextView = view.findViewById(R.id.tv_event_package)
-            val tvTime: TextView = view.findViewById(R.id.tv_event_time)
+            val chipTime: com.google.android.material.chip.Chip = view.findViewById(R.id.chip_event_time)
+            val severityContainer: android.widget.FrameLayout = view.findViewById(R.id.fl_severity_container)
+            val severityIcon: android.widget.ImageView = view.findViewById(R.id.iv_severity_icon)
         }
 
         override fun onCreateViewHolder(
@@ -642,30 +897,110 @@ class FPMDashboardActivity : AppCompatActivity() {
         ) {
             val event = events[position]
             holder.tvType.text = event.type
-            holder.tvType.setTextColor(
-                ContextCompat.getColor(
-                    holder.itemView.context,
-                    if (event.severity == "HIGH") R.color.error_red else R.color.warning_yellow,
-                ),
-            )
             holder.tvPackage.text = event.packageName
 
             val timeDiff = System.currentTimeMillis() - event.timestamp
             val minutes = timeDiff / 60000
-            holder.tvTime.text =
+            holder.chipTime.text =
                 when {
                     minutes < 1 -> "Just now"
                     minutes < 60 -> "$minutes min ago"
                     else -> "${minutes / 60} hr ago"
                 }
+
+            // Set severity colors and icons
+            val (color, icon) = when (event.severity) {
+                "HIGH" -> Pair(R.color.error_red, R.drawable.ic_alert)
+                "MEDIUM" -> Pair(R.color.warning_yellow, R.drawable.ic_info)
+                else -> Pair(R.color.accent_green, R.drawable.ic_check_circle)
+            }
+
+            holder.tvType.setTextColor(ContextCompat.getColor(holder.itemView.context, color))
+            holder.severityContainer.setBackgroundResource(
+                when (event.severity) {
+                    "HIGH" -> R.drawable.bg_status_critical
+                    "MEDIUM" -> R.drawable.bg_status_warning
+                    else -> R.drawable.bg_status_secure
+                }
+            )
+            holder.severityIcon.setImageResource(icon)
         }
 
         override fun getItemCount() = events.size
     }
 
+    /**
+     * Updates the Device Admin status UI based on current state.
+     * Shows warning if admin is not enabled since camera blocking requires it.
+     */
+    private fun updateDeviceAdminStatus() {
+        val isAdminActive = featurePermissionManager.isDeviceAdminActive()
+
+        if (isAdminActive) {
+            tvDeviceAdminStatus.text = "Enabled - Camera blocking active"
+            tvDeviceAdminStatus.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
+            ivDeviceAdminStatus.setImageResource(R.drawable.ic_check_circle)
+            btnEnableDeviceAdmin.visibility = View.GONE
+            tvDeviceAdminHelp.text = "Device Admin is enabled. Camera blocking is fully operational."
+        } else {
+            tvDeviceAdminStatus.text = "Not Enabled - Required for Camera Blocking"
+            tvDeviceAdminStatus.setTextColor(ContextCompat.getColor(this, R.color.warning_yellow))
+            ivDeviceAdminStatus.setImageResource(R.drawable.ic_alert)
+            btnEnableDeviceAdmin.visibility = View.VISIBLE
+            tvDeviceAdminHelp.text = "Camera blocking requires Device Admin permission to disable the camera hardware. Tap 'Enable' to set it up."
+        }
+    }
+
+    /**
+     * Launch Device Admin activation flow.
+     * Shows dialog explaining why it's needed before opening system settings.
+     */
+    private fun requestDeviceAdmin() {
+        if (featurePermissionManager.isDeviceAdminActive()) {
+            AlertDialog.Builder(this)
+                .setTitle("Device Admin Active")
+                .setMessage("Device Administrator is already enabled. Camera blocking is ready to use.")
+                .setPositiveButton("OK", null)
+                .show()
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("Enable Device Admin")
+                .setMessage("Device Admin permission is required to block camera access.\n\nThis permission allows Sentinoid to:\n• Disable camera hardware when threats are detected\n• Prevent unauthorized camera access\n\nThe permission will only be used for security features.")
+                .setPositiveButton("Continue") { _, _ ->
+                    featurePermissionManager.requestDeviceAdmin(this)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == FeaturePermissionManager.REQUEST_CODE_DEVICE_ADMIN) {
+            if (featurePermissionManager.isDeviceAdminActive()) {
+                Toast.makeText(this, "Device Admin enabled! Camera blocking is now active.", Toast.LENGTH_LONG).show()
+                ActivityLogger.getInstance(this).log(
+                    ActivityLogger.CATEGORY_FPM,
+                    "Device Admin enabled by user",
+                    ActivityLogger.SEVERITY_INFO
+                )
+            } else {
+                Toast.makeText(this, "Device Admin not enabled. Camera blocking requires this permission.", Toast.LENGTH_LONG).show()
+                ActivityLogger.getInstance(this).log(
+                    ActivityLogger.CATEGORY_FPM,
+                    "Device Admin activation declined",
+                    ActivityLogger.SEVERITY_WARNING
+                )
+            }
+            updateDeviceAdminStatus()
+        }
+    }
+
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "fpm_security_alerts"
         const val NOTIFICATION_ID = 3000
+        const val NOTIFICATION_ID_SUMMARY = 3999
+        const val NOTIFICATION_GROUP_KEY = "fpm_threat_group"
 
         const val PREFS_AUTO_BLOCK_MALWARE = "fpm_auto_block_malware"
         const val PREFS_AUTO_BLOCK_OVERLAY = "fpm_auto_block_overlay"
@@ -673,6 +1008,7 @@ class FPMDashboardActivity : AppCompatActivity() {
         const val PREFS_FPM_NOTIFICATIONS = "fpm_notifications"
         const val PREFS_BLOCKED_COUNT = "fpm_blocked_count"
         const val PREFS_LAST_ALERT_TIME = "fpm_last_alert_time"
+        const val PREFS_EVENTS_STORAGE = "fpm_events_storage"
 
         const val ACTION_MALWARE_DETECTED = "com.sentinoid.app.MALWARE_DETECTED"
         const val ACTION_OVERLAY_DETECTED = "com.sentinoid.app.OVERLAY_DETECTED"

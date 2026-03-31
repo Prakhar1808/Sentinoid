@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.sentinoid.app.R
 import com.sentinoid.app.security.ActivityLogger
@@ -33,10 +34,16 @@ class WatchdogService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val NOTIFICATION_CHANNEL_ID = "watchdog_channel"
         private const val WAKELOCK_TAG = "Sentinoid:WatchdogWakeLock"
+        private const val WAKELOCK_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
         private const val HEARTBEAT_INTERVAL_MS = 45000L // 45 seconds
         private const val MAX_HEARTBEAT_MISS = 3
         private const val WATCHDOG_CHECK_INTERVAL_MS = 45000L // 45 seconds between checks
         private const val TAMPER_ALERT_COOLDOWN_MS = 60000L // 1 minute cooldown between alerts
+        private const val TAMPER_LOCKOUT_MS = 300000L // 5 minute lockout after tamper detected
+        
+        // Preference keys for persistent tamper tracking
+        const val PREFS_TAMPER_DETECTED = "tamper_detected_time"
+        const val PREFS_TAMPER_SILENT_MODE = "tamper_silent_mode"
 
         private val ROOT_INDICATORS =
             listOf(
@@ -98,6 +105,16 @@ class WatchdogService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startWatchdog() {
+        // Check if we're in tamper lockout period - don't restart if tamper was recently detected
+        val lastTamperTime = securePreferences.getLong(PREFS_TAMPER_DETECTED, 0)
+        val timeSinceTamper = System.currentTimeMillis() - lastTamperTime
+        if (timeSinceTamper < TAMPER_LOCKOUT_MS) {
+            val remainingMinutes = (TAMPER_LOCKOUT_MS - timeSinceTamper) / 60000
+            activityLogger.logWatchdog("Watchdog start blocked: tamper lockout active (${remainingMinutes}m remaining)", ActivityLogger.SEVERITY_WARNING)
+            stopSelf()
+            return
+        }
+        
         if (isRunning) {
             recordHeartbeat()
             return
@@ -217,9 +234,13 @@ class WatchdogService : Service() {
     }
 
     private fun checkForHoneypotAccess() {
-        val accesses = honeypotEngine.checkForHoneypotAccess()
-        if (accesses.isNotEmpty()) {
-            triggerTamperResponse("Honeypot access detected: ${accesses[0].filePath}")
+        try {
+            val accesses = honeypotEngine.checkForAccess()
+            if (accesses.isNotEmpty()) {
+                triggerTamperResponse("Honeypot access detected: ${accesses[0].filePath}")
+            }
+        } catch (e: Exception) {
+            Log.e("WatchdogService", "Honeypot check failed: ${e.message}")
         }
     }
 
@@ -265,20 +286,43 @@ class WatchdogService : Service() {
 
     private fun triggerTamperResponse(reason: String) {
         val currentTime = System.currentTimeMillis()
-        
-        // Rate limiting: only show tamper alert once per minute
+
+        // Check persistent cooldown - don't alert if we already alerted recently (even across restarts)
+        val lastPersistentTamper = securePreferences.getLong(PREFS_TAMPER_DETECTED, 0)
+        if (currentTime - lastPersistentTamper < TAMPER_LOCKOUT_MS) {
+            // Still in lockout period, suppress silently
+            isRunning = false
+            stopSelf()
+            return
+        }
+
+        // Rate limiting: only show tamper alert once per minute within same session
         if (currentTime - lastTamperAlertTime < TAMPER_ALERT_COOLDOWN_MS) {
             tamperAlertCount++
             logSecurityEvent("TAMPER_SUPPRESSED: $reason (count: $tamperAlertCount)")
-            activityLogger.logTamper("Tamper suppressed: $reason", ActivityLogger.SEVERITY_WARNING, mapOf("count" to tamperAlertCount.toString()))
+            activityLogger.logTamper(
+                "Tamper suppressed: $reason",
+                ActivityLogger.SEVERITY_WARNING,
+                mapOf("count" to tamperAlertCount.toString()),
+            )
+            isRunning = false
+            stopSelf()
             return
         }
-        
+
+        // Persist tamper detection to prevent resurrection loops
+        securePreferences.putLong(PREFS_TAMPER_DETECTED, currentTime)
+        securePreferences.putBoolean(PREFS_TAMPER_SILENT_MODE, true)
+
         lastTamperAlertTime = currentTime
         tamperAlertCount++
-        
+
         logSecurityEvent("TAMPER_DETECTED: $reason")
-        activityLogger.logTamper("Tamper detected: $reason", ActivityLogger.SEVERITY_CRITICAL, mapOf("alert_count" to tamperAlertCount.toString()))
+        activityLogger.logTamper(
+            "Tamper detected: $reason",
+            ActivityLogger.SEVERITY_CRITICAL,
+            mapOf("alert_count" to tamperAlertCount.toString()),
+        )
 
         // Broadcast first so UI can update
         val intent =
@@ -286,12 +330,12 @@ class WatchdogService : Service() {
                 putExtra("reason", reason)
                 putExtra("alert_count", tamperAlertCount)
                 putExtra("last_alert", lastTamperAlertTime)
+                putExtra("lockout_active", true)
                 setPackage(packageName)
             }
         sendBroadcast(intent)
 
-        // Only purge if it's a critical hardware tamper in production
-        // For this version, we'll just alert and stop the service
+        // Stop service - do NOT trigger resurrection when tampered
         isRunning = false
         stopSelf()
     }
@@ -308,11 +352,14 @@ class WatchdogService : Service() {
             val channel =
                 NotificationChannel(
                     NOTIFICATION_CHANNEL_ID,
-                    "Sentinoid Watchdog",
+                    getString(R.string.watchdog_channel_name),
                     NotificationManager.IMPORTANCE_LOW,
                 ).apply {
-                    description = "Security monitoring service"
+                    description = getString(R.string.watchdog_channel_description)
                     setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_SECRET
+                    enableVibration(false)
+                    setSound(null, null)
                 }
 
             val notificationManager = getSystemService(NotificationManager::class.java)
@@ -328,26 +375,54 @@ class WatchdogService : Service() {
                 Intent(this, MainActivity::class.java),
                 PendingIntent.FLAG_IMMUTABLE,
             )
+            
+        val stopIntent = Intent(this, WatchdogService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE
+        )
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Sentinoid Watchdog")
-            .setContentText("Security monitoring active")
+            .setContentTitle(getString(R.string.watchdog_notification_title))
+            .setContentText(getString(R.string.watchdog_notification_text))
             .setSmallIcon(R.drawable.ic_security)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .addAction(R.drawable.ic_stop, getString(R.string.watchdog_stop), stopPendingIntent)
             .build()
     }
 
     private fun acquireWakeLock() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock =
-            powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                WAKELOCK_TAG,
-            ).apply {
-                acquire(10 * 60 * 1000L)
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock =
+                powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    WAKELOCK_TAG,
+                ).apply {
+                    // Use 30 minute timeout to prevent indefinite wakelocks
+                    setReferenceCounted(false)
+                    acquire(WAKELOCK_TIMEOUT_MS)
+                }
+        } catch (e: Exception) {
+            activityLogger.logWatchdog("Failed to acquire wakelock: ${e.message}", ActivityLogger.SEVERITY_WARNING)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let { wl ->
+                if (wl.isHeld) {
+                    wl.release()
+                }
             }
+            wakeLock = null
+        } catch (e: Exception) {
+            // Ignore release errors
+        }
     }
 
     override fun onDestroy() {
@@ -355,10 +430,8 @@ class WatchdogService : Service() {
         isRunning = false
         watchdogThread?.interrupt()
         heartbeatRunnable?.let { resurrectionHandler?.removeCallbacks(it) }
-        try {
-            if (wakeLock?.isHeld == true) wakeLock?.release()
-        } catch (e: Exception) {
-        }
+
+        releaseWakeLock()
 
         activityLogger.logWatchdog("Watchdog service stopped", ActivityLogger.SEVERITY_INFO)
 
@@ -368,7 +441,11 @@ class WatchdogService : Service() {
     }
 
     private fun isExplicitlyStopped(): Boolean {
-        return System.currentTimeMillis() - securePreferences.getLong("watchdog_explicit_stop", 0) < 5000
+        // Check explicit stop
+        val explicitStop = System.currentTimeMillis() - securePreferences.getLong("watchdog_explicit_stop", 0) < 5000
+        // Check tamper lockout - if tamper was detected recently, consider it an explicit stop (no resurrection)
+        val tamperLockout = System.currentTimeMillis() - securePreferences.getLong(PREFS_TAMPER_DETECTED, 0) < TAMPER_LOCKOUT_MS
+        return explicitStop || tamperLockout
     }
 
     private fun triggerResurrection() {
